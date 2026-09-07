@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import cors from 'cors'
 import connectDb from './config/connectDb.js';
 import authRouter from './routers/auth.router.js';
+import outreachRouter from './routers/outreach.route.js';
 dotenv.config();
 
 const app = express();
@@ -12,7 +13,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/auth', authRouter)
+app.use('/api/auth', authRouter);
+app.use('/api/outreach', outreachRouter);
 
 app.get("/", (_, res) => {
     res.send("hello");
