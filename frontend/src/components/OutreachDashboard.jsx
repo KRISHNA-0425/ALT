@@ -294,7 +294,6 @@ export default function OutreachDashboard() {
         )}
       </div>
 
-      {/* 3 Squares per row Grid */}
       <div className="mt-8">
         {loading ? (
           <div className="p-16 text-center text-gray-500 text-sm">Loading outreach cases...</div>
