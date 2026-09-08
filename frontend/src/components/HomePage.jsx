@@ -63,8 +63,17 @@ const HomePage = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 text-sm text-gray-600">
-              <span>User: <strong className="text-gray-900">{user?.userID || 'User'}</strong></span>
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              <div className="flex flex-col items-end">
+                {user?.userName && (
+                  <span className="font-semibold text-gray-900 text-sm leading-tight">
+                    {user.userName}
+                  </span>
+                )}
+                <span className="text-xs text-gray-500">
+                  ID: <strong className="text-gray-700">{user?.userID || 'User'}</strong>
+                </span>
+              </div>
               <span
                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${getRoleBadgeColor(
                   role

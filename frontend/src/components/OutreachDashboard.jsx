@@ -16,6 +16,7 @@ export {
 } from './Outreach Components/constants';
 
 export default function OutreachDashboard() {
+  const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
 
   const {
@@ -61,7 +62,14 @@ export default function OutreachDashboard() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-gray-200">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">OutReach Cases</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">OutReach Cases</h2>
+            {user?.userName && (
+              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 border border-indigo-100">
+                {user.userName} ({user?.userID})
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mt-1">
             Click on any case card to view its comprehensive profile and follow-up timeline
           </p>
