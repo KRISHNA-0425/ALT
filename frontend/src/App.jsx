@@ -5,7 +5,10 @@ import LoginForm from './components/LoginForm'
 import HomePage from './components/HomePage'
 import { useAuthStore } from './store/useAuthStore'
 
-export const apiInstance = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000/api';
+const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+export const apiInstance = rawBackendUrl.endsWith('/api')
+  ? rawBackendUrl
+  : `${rawBackendUrl.replace(/\/$/, '')}/api`;
 
 const App = () => {
   const token = useAuthStore((state) => state.token);
