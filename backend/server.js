@@ -18,25 +18,8 @@ export const NODE_ENV = process.env.NODE_ENV || 'development';
 const app = express();
 const port = process.env.PORT || 3000;
 
-const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : '';
-
-const allowedOrigins = [
-    frontendUrl,
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://localhost:5174'
-].filter(Boolean);
-
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (e.g., Postman, mobile apps, curl)
-        if (!origin) return callback(null, true);
-
-        if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-            return callback(null, true);
-        }
-        return callback(null, false);
-    },
+    origin: process.env.FRONTEND_URL,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
