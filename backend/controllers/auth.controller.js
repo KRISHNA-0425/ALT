@@ -17,8 +17,13 @@ export const register = async (req, res) => {
             return res.status(400).json({ message: 'Valid userName is required' });
         }
 
-        if (typeof userID !== 'string' || !userID.startsWith('OR')) {
-            return res.status(400).json({ message: 'userID must start with "OR"' });
+        const isValidPrefix = ALLOWED_ROLES.some((prefix) =>
+            userID.toUpperCase().startsWith(prefix)
+        );
+        if (typeof userID !== 'string' || !isValidPrefix) {
+            return res.status(400).json({
+                message: `userID must start with one of: ${ALLOWED_ROLES.join(', ')}`,
+            });
         }
 
         if (userID.length > 25) {
@@ -86,7 +91,10 @@ export const login = async (req, res) => {
         }
 
         // 2. Validate prefix format
-        if (typeof userID !== 'string' || !userID.startsWith('OR')) {
+        const isValidPrefix = ALLOWED_ROLES.some((prefix) =>
+            userID.toUpperCase().startsWith(prefix)
+        );
+        if (typeof userID !== 'string' || !isValidPrefix) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 

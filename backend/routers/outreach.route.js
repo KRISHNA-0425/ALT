@@ -11,9 +11,9 @@ import { verifyToken, authorizeRoles } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// Apply authentication and role check (accessible to 'OR' role as well as 'ADM')
+// Apply authentication and role check (accessible to 'OR', 'SLC', 'ADM', 'DEV')
 router.use(verifyToken);
-router.use(authorizeRoles('OR', 'ADM', 'DEV'));
+router.use(authorizeRoles('OR', 'SLC', 'ADM', 'DEV'));
 
 // CRUD Routes
 router.post('/', createOutreach);

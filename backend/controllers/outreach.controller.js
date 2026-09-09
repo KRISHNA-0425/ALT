@@ -44,7 +44,7 @@ export const createOutreach = async (req, res) => {
  */
 export const getAllOutreach = async (req, res) => {
     try {
-        const { search, category, offenceType, callStatus } = req.query;
+        const { search, category, offenceType, callStatus, tier, crimeCategory, hasSlc } = req.query;
         let query = {};
 
         const selectedCategory = offenceType || category;
@@ -55,11 +55,28 @@ export const getAllOutreach = async (req, res) => {
                 { 'inmate.name': { $regex: search, $options: 'i' } },
                 { 'discovery.sourceOfDiscovery': { $regex: search, $options: 'i' } },
                 { 'inmate.offenceType': { $regex: search, $options: 'i' } },
+                { 'caseDetails.firNumber': { $regex: search, $options: 'i' } },
+                { 'caseDetails.policeStation': { $regex: search, $options: 'i' } },
+                { 'caseDetails.court': { $regex: search, $options: 'i' } },
             ];
         }
 
         if (selectedCategory && selectedCategory !== 'All') {
             query['inmate.offenceType'] = selectedCategory;
+        }
+
+        if (tier && tier !== 'All') {
+            query.tier = tier;
+        }
+
+        if (crimeCategory && crimeCategory !== 'All') {
+            query['legalAssessment.crimeCategory'] = crimeCategory;
+        }
+
+        if (hasSlc === 'true') {
+            query.tier = { $exists: true, $ne: null };
+        } else if (hasSlc === 'false') {
+            query.tier = { $in: [null, undefined] };
         }
 
         if (callStatus && callStatus !== 'All') {
@@ -166,20 +183,34 @@ export const deleteOutreach = async (req, res) => {
 export const addFollowUp = async (req, res) => {
     try {
         const { id } = req.params;
-        const { round, date, notes, callStatus } = req.body;
-
-        if (!round) {
-            return res.status(400).json({ message: 'Follow-up round number is required' });
-        }
-
         const outreach = await Outreach.findById(id);
+
         if (!outreach) {
             return res.status(404).json({ message: 'Outreach record not found' });
         }
 
-        outreach.followUps.push({
+        const {
             round,
-            date: date || new Date(),
+            followUpNumber,
+            date,
+            callDate,
+            scheduledDate,
+            poc,
+            documentBottleneck,
+            notes,
+            callStatus,
+        } = req.body;
+
+        const roundNum = round || followUpNumber || outreach.followUps.length + 1;
+
+        outreach.followUps.push({
+            round: roundNum,
+            followUpNumber: roundNum,
+            date: date || callDate || new Date(),
+            callDate: callDate || date || new Date(),
+            scheduledDate: scheduledDate || null,
+            poc: poc || '',
+            documentBottleneck: documentBottleneck || '',
             notes: notes || '',
             callStatus: callStatus || 'Other',
         });

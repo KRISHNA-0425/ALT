@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import OutreachDashboard from './OutreachDashboard';
+import SlcDashboard from './SlcDashboard';
 
 const HomePage = () => {
   const { user, token, logout } = useAuthStore();
@@ -22,6 +23,9 @@ const HomePage = () => {
   };
 
   const role = getRole();
+
+  // Default portal based on role
+  const [activePortal, setActivePortal] = useState(role === 'SLC' ? 'slc' : 'outreach');
 
   const handleLogout = () => {
     logout();
@@ -46,7 +50,9 @@ const HomePage = () => {
     }
   };
 
-  const isOutreachAuthorized = role === 'OR' || role === 'ADM';
+  const canAccessOutreach = role === 'OR' || role === 'ADM' || role === 'DEV';
+  const canAccessSlc = role === 'SLC' || role === 'ADM' || role === 'DEV';
+  const hasDualAccess = (role === 'ADM' || role === 'DEV');
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -54,12 +60,42 @@ const HomePage = () => {
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">
-              OR
+            <span className={`h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
+              activePortal === 'slc' ? 'bg-cyan-600' : 'bg-indigo-600'
+            }`}>
+              {activePortal === 'slc' ? 'SLC' : 'OR'}
             </span>
-            <span className="font-bold text-lg text-gray-900 tracking-tight">
-              Project OutReach Portal
+            <span className="font-bold text-lg text-gray-900 tracking-tight hidden sm:inline">
+              {activePortal === 'slc' ? 'Socio-Legal Counselling Portal' : 'Project OutReach Portal'}
             </span>
+
+            {/* Portal Switcher for Admins / Devs */}
+            {hasDualAccess && (
+              <div className="ml-4 flex items-center bg-gray-100 p-1 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setActivePortal('outreach')}
+                  className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                    activePortal === 'outreach'
+                      ? 'bg-white text-indigo-700 shadow-xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  OutReach
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePortal('slc')}
+                  className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                    activePortal === 'slc'
+                      ? 'bg-white text-cyan-700 shadow-xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  Socio-Legal
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -98,7 +134,13 @@ const HomePage = () => {
 
       {/* Main Content Area */}
       <main className="flex-1">
-        {isOutreachAuthorized ? (
+        {activePortal === 'slc' && canAccessSlc ? (
+          <SlcDashboard />
+        ) : activePortal === 'outreach' && canAccessOutreach ? (
+          <OutreachDashboard />
+        ) : canAccessSlc ? (
+          <SlcDashboard />
+        ) : canAccessOutreach ? (
           <OutreachDashboard />
         ) : (
           <div className="max-w-lg mx-auto mt-16 p-8 bg-white rounded-2xl border border-gray-200 shadow-sm text-center space-y-4">
@@ -107,7 +149,7 @@ const HomePage = () => {
             </div>
             <h2 className="text-xl font-bold text-gray-900">Access Restricted</h2>
             <p className="text-sm text-gray-600">
-              Only users with the <strong className="text-indigo-600">OR (OutReach)</strong> role are authorized to view and manage OutReach details.
+              Your account does not have authorization for this portal.
             </p>
             <div className="rounded-lg bg-gray-50 p-3 border border-gray-200 text-xs text-gray-500">
               Your current role is: <span className="font-semibold text-gray-800">{role}</span>

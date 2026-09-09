@@ -1,50 +1,6 @@
 import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
-export const OFFENCE_TYPE_OPTIONS = [
-  'Theft',
-  'Dacoity',
-  'Robbery',
-  'Snatching',
-  'Murder',
-  'Attempt to Murder',
-  'Assault',
-  'Kidnapping',
-  'Arms Act',
-  'Rape',
-  'POCSO',
-  'Cheating',
-  'Cybercrime',
-  'NDPS',
-  'Dowry',
-  'Others',
-  'Accident',
-  'Not Recorded',
-  'Ladhai Jhagda',
-  'DP Act',
-  'Fraud/Cheating',
-  'UAPA',
-  'MCOCA',
-  'Cheque Bounce',
-  'Sexual Harassment',
-];
-
-export const RELATIONSHIP_OPTIONS = [
-  'Father',
-  'Mother',
-  'Brother',
-  'Sister',
-  'Friend',
-  'Other',
-];
-
-export const DISCOVERY_MODE_OPTIONS = [
-  'Outside Prison',
-  'Inside Prison',
-  'Helpline',
-  'Other',
-];
-
 export const DOCUMENTS_SUBMITTED_OPTIONS = [
   'FIR',
   'Chargesheet',
@@ -113,39 +69,18 @@ export const GENDER_OPTIONS = [
   'Other',
 ];
 
-export const CALL_STATUS_OPTIONS = [
-  'Call back',
-  'Switched off',
-  'Bail out',
-  'Not available',
-  'Incoming not available',
-  'RNR',
-  'Busy',
-  'Transferred to socio-legal support',
-  'No help needed',
-  'Will reach out later',
-  'Invalid number',
-  'Wrong number',
-  'Other person pick up',
-  'Other',
-];
-
-// Unified Follow-up Schema supporting both Outreach & Socio-Legal notes
+// Sub-schema for Call Notes & Follow-up tracking (Columns AP to BF)
 const FollowUpSchema = new Schema(
   {
-    round: {
-      type: Number,
-    },
     followUpNumber: {
       type: Number,
+      required: true,
+      min: 1,
     },
-    date: {
+    scheduledDate: {
       type: Date,
     },
     callDate: {
-      type: Date,
-    },
-    scheduledDate: {
       type: Date,
     },
     poc: {
@@ -160,132 +95,59 @@ const FollowUpSchema = new Schema(
       type: String,
       trim: true,
     },
-    callStatus: {
-      type: String,
-      trim: true,
-      enum: CALL_STATUS_OPTIONS,
-    },
   },
   { _id: true, timestamps: true }
 );
 
-// Unified Case Schema (Created by Outreach, enriched directly by Socio-Legal Counselling)
-const OutreachSchema = new Schema(
+// Main Socio-Legal Counselling Schema
+const SocioLegalCounsellingSchema = new Schema(
   {
-    // OutReach Identifiers
-    sNo: {
-      type: Number,
+    // Link to originating Outreach case (optional)
+    outreachId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Outreach',
       index: true,
     },
-    dateOfFirstContact: {
-      type: Date,
-      required: true,
-    },
 
-    // Contact Person / Family Member Details
-    contactPerson: {
-      name: {
-        type: String,
-        trim: true,
-      },
-      relationshipWithInmate: {
-        type: String,
-        trim: true,
-      },
-      otherRelationship: {
-        type: String,
-        trim: true,
-      },
-      phoneNumbers: [
-        {
-          type: String,
-          trim: true,
-        },
-      ],
-    },
-
-    // Inmate Demographics (populated by Outreach, expanded by Socio-Legal)
-    inmate: {
-      name: {
-        type: String,
-        trim: true,
-      },
-      gender: {
-        type: String,
-        enum: GENDER_OPTIONS,
-      },
-      age: {
-        type: Number,
-        min: 0,
-        max: 120,
-      },
-      education: {
-        type: String,
-        enum: EDUCATION_OPTIONS,
-      },
-      occupation: {
-        type: String,
-        trim: true,
-      },
-      address: {
-        type: String,
-        trim: true,
-      },
-      monthlyIncome: {
-        type: String,
-        trim: true,
-      },
-      isSoleBreadwinner: {
-        type: Boolean,
-        default: null,
-      },
-      offenceType: [
-        {
-          type: String,
-          enum: OFFENCE_TYPE_OPTIONS,
-        },
-      ],
-      otherOffence: {
-        type: String,
-        trim: true,
-      },
-      pastCaseHistory: {
-        type: String,
-        enum: ['Yes', 'No'],
-        default: 'No',
-      },
-    },
-
-    // Case Discovery Information
-    discovery: {
-      mode: {
-        type: String,
-        enum: DISCOVERY_MODE_OPTIONS,
-        default: 'Outside Prison',
-      },
-      otherMode: {
-        type: String,
-        trim: true,
-      },
-      sourceOfDiscovery: {
-        type: String,
-        trim: true,
-      },
-    },
-
-    // -------------------------------------------------------------
-    // SOCIO-LEGAL COUNSELLING (SLC) ENRICHMENT FIELDS (Added to SAME doc)
-    // -------------------------------------------------------------
+    // Basic Case Identifiers (Columns A - H)
     slcNo: {
       type: Number,
       unique: true,
       sparse: true,
       index: true,
     },
+    dateOfContact: {
+      type: Date,
+    },
     poc: {
       type: String,
       trim: true,
     },
+    modeOfDiscovery: {
+      type: String,
+      enum: ['Inside Prison', 'Outside Prison', 'Helpline', 'Other'],
+      default: 'Outside Prison',
+    },
+    familyMember: {
+      name: { type: String, trim: true },
+      relationshipWithInmate: { type: String, trim: true },
+      phoneNumber: { type: String, trim: true },
+    },
+    inmate: {
+      name: { type: String, trim: true, required: true },
+      gender: { type: String, enum: GENDER_OPTIONS },
+      age: { type: Number, min: 0, max: 120 },
+      education: {
+        type: String,
+        enum: EDUCATION_OPTIONS,
+      },
+      occupation: { type: String, trim: true },
+      address: { type: String, trim: true },
+      monthlyIncome: { type: String, trim: true },
+      isSoleBreadwinner: { type: Boolean, default: null },
+    },
+
+    // Column I: Documents Submitted
     documentsSubmitted: [
       {
         type: String,
@@ -293,11 +155,15 @@ const OutreachSchema = new Schema(
         enum: DOCUMENTS_SUBMITTED_OPTIONS,
       },
     ],
+
+    // Column J & Z: Priority Tier
     tier: {
       type: String,
       enum: TIER_OPTIONS,
       index: true,
     },
+
+    // Incarceration Details (Columns K - L)
     dateOfArrest: {
       type: Date,
     },
@@ -312,6 +178,8 @@ const OutreachSchema = new Schema(
         enum: PRISONER_TYPE_OPTIONS,
       },
     },
+
+    // Scoring Areas & Legal Profile (Columns M - X)
     legalAssessment: {
       numberOfPendingCases: {
         type: String,
@@ -348,6 +216,8 @@ const OutreachSchema = new Schema(
         type: Schema.Types.Mixed,
       },
     },
+
+    // Case & Court Particulars (Columns AG - AM)
     caseDetails: {
       caseSections: [{ type: String, trim: true }],
       lawyerType: {
@@ -363,6 +233,8 @@ const OutreachSchema = new Schema(
         default: null,
       },
     },
+
+    // Column AN: Support Needed
     supportNeeded: [
       {
         type: String,
@@ -370,12 +242,14 @@ const OutreachSchema = new Schema(
         enum: SUPPORT_NEEDED_OPTIONS,
       },
     ],
+
+    // Column AO: Initial Call / Support Provided Notes
     initialCallNotes: {
       type: String,
       trim: true,
     },
 
-    // Follow-up Calls & Timeline
+    // Columns AP - BF: Dynamic Follow-up Entries (1st to 4th+ Follow-ups)
     followUps: [FollowUpSchema],
   },
   {
@@ -383,11 +257,10 @@ const OutreachSchema = new Schema(
   }
 );
 
-// Helpful Indexes
-OutreachSchema.index({ 'contactPerson.phoneNumbers': 1 });
-OutreachSchema.index({ 'inmate.name': 'text', 'contactPerson.name': 'text', 'caseDetails.firNumber': 'text' });
-OutreachSchema.index({ 'discovery.sourceOfDiscovery': 1 });
-OutreachSchema.index({ tier: 1, 'legalAssessment.crimeCategory': 1 });
+// Indexes for common queries
+SocioLegalCounsellingSchema.index({ tier: 1, 'legalAssessment.crimeCategory': 1 });
+SocioLegalCounsellingSchema.index({ 'inmate.name': 'text', 'caseDetails.firNumber': 'text' });
 
-const Outreach = mongoose.models.Outreach || mongoose.model('Outreach', OutreachSchema);
-export default Outreach;
+const SocioLegalCounselling = mongoose.model('SocioLegalCounselling', SocioLegalCounsellingSchema);
+
+export default SocioLegalCounselling;

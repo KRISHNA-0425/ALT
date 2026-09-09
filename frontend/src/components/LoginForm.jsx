@@ -24,8 +24,13 @@ export default function LoginForm({ onLoginSuccess }) {
     e.preventDefault();
 
     // Client-side validation
-    if (!formData.userID.startsWith('OR')) {
-      toast.error('User ID must start with "OR"');
+    const ALLOWED_PREFIXES = ['OR', 'SLC', 'ADM', 'DEV', 'ADV', 'LC'];
+    const hasValidPrefix = ALLOWED_PREFIXES.some((prefix) =>
+      formData.userID.trim().toUpperCase().startsWith(prefix)
+    );
+
+    if (!hasValidPrefix) {
+      toast.error(`User ID must start with a role prefix (${ALLOWED_PREFIXES.join(', ')})`);
       return;
     }
 
@@ -86,7 +91,7 @@ export default function LoginForm({ onLoginSuccess }) {
               id="userID"
               type="text"
               name="userID"
-              placeholder="e.g., OR_ADMIN_01"
+              placeholder="e.g., SLC12345 or OR12346"
               maxLength={25}
               value={formData.userID}
               onChange={handleChange}

@@ -4,6 +4,7 @@ import cors from 'cors';
 import connectDb from './config/connectDb.js';
 import authRouter from './routers/auth.router.js';
 import outreachRouter from './routers/outreach.route.js';
+import slcRouter from './routers/slc.route.js';
 
 // Load default .env first
 dotenv.config();
@@ -29,6 +30,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/auth', authRouter);
 app.use('/api/outreach', outreachRouter);
+app.use('/api/slc', slcRouter);
 
 app.get('/', (_, res) => {
     res.send(`Server is running in ${NODE_ENV} mode.`);
