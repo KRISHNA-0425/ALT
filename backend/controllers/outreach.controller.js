@@ -44,18 +44,30 @@ export const createOutreach = async (req, res) => {
  */
 export const getAllOutreach = async (req, res) => {
     try {
-        const { search } = req.query;
+        const { search, category, offenceType, callStatus } = req.query;
         let query = {};
 
+        const selectedCategory = offenceType || category;
+
         if (search) {
-            query = {
-                $or: [
-                    { 'contactPerson.name': { $regex: search, $options: 'i' } },
-                    { 'inmate.name': { $regex: search, $options: 'i' } },
-                    { 'discovery.sourceOfDiscovery': { $regex: search, $options: 'i' } },
-                    { 'inmate.offenceType': { $regex: search, $options: 'i' } },
-                ],
-            };
+            query.$or = [
+                { 'contactPerson.name': { $regex: search, $options: 'i' } },
+                { 'inmate.name': { $regex: search, $options: 'i' } },
+                { 'discovery.sourceOfDiscovery': { $regex: search, $options: 'i' } },
+                { 'inmate.offenceType': { $regex: search, $options: 'i' } },
+            ];
+        }
+
+        if (selectedCategory && selectedCategory !== 'All') {
+            query['inmate.offenceType'] = selectedCategory;
+        }
+
+        if (callStatus && callStatus !== 'All') {
+            if (callStatus === 'No Calls') {
+                query['followUps'] = { $size: 0 };
+            } else {
+                query['followUps.callStatus'] = callStatus;
+            }
         }
 
         const outreachList = await Outreach.find(query).sort({ createdAt: -1 });

@@ -19,6 +19,8 @@ export const useOutreachStore = create((set, get) => ({
   outreachList: [],
   loading: false,
   search: '',
+  caseCategoryFilter: 'All',
+  callStatusFilter: 'All',
 
   // Selected Case (for details modal)
   selectedCase: null,
@@ -44,6 +46,18 @@ export const useOutreachStore = create((set, get) => ({
 
   // State setters
   setSearch: (search) => set({ search }),
+  setCaseCategoryFilter: (category) => {
+    set({ caseCategoryFilter: category });
+    get().fetchOutreach();
+  },
+  setCallStatusFilter: (status) => {
+    set({ callStatusFilter: status });
+    get().fetchOutreach();
+  },
+  resetFilters: () => {
+    set({ search: '', caseCategoryFilter: 'All', callStatusFilter: 'All' });
+    get().fetchOutreach();
+  },
   setCurrentStep: (currentStep) => set({ currentStep }),
   setFormData: (formData) => set({ formData }),
   setFollowUpData: (followUpData) => set({ followUpData }),
@@ -144,11 +158,16 @@ export const useOutreachStore = create((set, get) => ({
   // Async API Calls
   fetchOutreach: async () => {
     set({ loading: true });
-    const { search, selectedCase } = get();
+    const { search, caseCategoryFilter, callStatusFilter, selectedCase } = get();
     try {
-      const url = search
-        ? `${apiInstance}/outreach?search=${encodeURIComponent(search)}`
-        : `${apiInstance}/outreach`;
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (caseCategoryFilter && caseCategoryFilter !== 'All') params.append('category', caseCategoryFilter);
+      if (callStatusFilter && callStatusFilter !== 'All') params.append('callStatus', callStatusFilter);
+
+      const queryString = params.toString();
+      const url = queryString ? `${apiInstance}/outreach?${queryString}` : `${apiInstance}/outreach`;
+
       const res = await axios.get(url, getAuthHeaders());
       const data = res.data.data || [];
       set({ outreachList: data });

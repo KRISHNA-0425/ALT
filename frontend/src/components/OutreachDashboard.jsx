@@ -6,6 +6,7 @@ import OutreachCard from './Outreach Components/OutreachCard';
 import CaseDetailsModal from './Outreach Components/CaseDetailsModal';
 import MultiStepModal from './Outreach Components/MultiStepModal';
 import FollowUpModal from './Outreach Components/FollowUpModal';
+import FilterSection from './Outreach Components/FilterSection';
 
 // Re-export constants for any external references
 export {
@@ -22,8 +23,6 @@ export default function OutreachDashboard() {
   const {
     outreachList,
     loading,
-    search,
-    setSearch,
     fetchOutreach,
     openCreateModal,
     openEditModal,
@@ -85,34 +84,8 @@ export default function OutreachDashboard() {
         </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="mt-6 flex gap-3">
-        <input
-          type="text"
-          placeholder="Search by Inmate Name, Contact Name, Offence Type, or Source..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && fetchOutreach()}
-          className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-        />
-        <button
-          onClick={fetchOutreach}
-          className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 transition cursor-pointer"
-        >
-          Search
-        </button>
-        {search && (
-          <button
-            onClick={() => {
-              setSearch('');
-              fetchOutreach();
-            }}
-            className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-          >
-            Clear
-          </button>
-        )}
-      </div>
+      {/* Filter Section (Search, Case Categories, Call Statuses) */}
+      <FilterSection />
 
       {/* 3 Squares per row Grid */}
       <div className="mt-8">
