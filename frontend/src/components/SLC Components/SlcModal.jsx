@@ -13,11 +13,13 @@ import {
   ACCESS_DOCUMENTS_OPTIONS,
   STAGE_OF_CASE_OPTIONS,
 } from './constants';
+import DocumentManager from '../Common/DocumentManager';
 
 export default function SlcModal() {
   const {
     isModalOpen,
     isEditMode,
+    currentId,
     formData,
     setFormData,
     closeModal,
@@ -25,6 +27,8 @@ export default function SlcModal() {
     submitting,
     openFollowUpModal,
     selectedRecord,
+    uploadCaseDocument,
+    deleteCaseDocument,
   } = useSlcStore();
 
   const [activeTab, setActiveTab] = useState('demographics');
@@ -430,6 +434,16 @@ export default function SlcModal() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Case Document Attachments & Uploads */}
+              <div className="pt-3">
+                <DocumentManager
+                  caseId={currentId || selectedRecord?._id || formData._id}
+                  attachedFiles={formData.attachedFiles || selectedRecord?.attachedFiles || []}
+                  onUpload={uploadCaseDocument}
+                  onDelete={deleteCaseDocument}
+                />
               </div>
 
               <h4 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2 pt-2">

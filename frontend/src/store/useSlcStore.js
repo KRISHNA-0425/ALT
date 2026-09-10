@@ -93,6 +93,7 @@ export const useSlcStore = create((set, get) => ({
           ? record.dateOfFirstContact.split('T')[0]
           : new Date().toISOString().split('T')[0],
         dateOfArrest: record.dateOfArrest ? record.dateOfArrest.split('T')[0] : '',
+        poc: record.poc || record.discovery?.sourceOfDiscovery || '',
         modeOfDiscovery: record.modeOfDiscovery || record.discovery?.mode || 'Outside Prison',
         familyMember: {
           name: record.familyMember?.name || record.contactPerson?.name || '',
@@ -135,6 +136,7 @@ export const useSlcStore = create((set, get) => ({
       dateOfContact: outreachCase.dateOfFirstContact
         ? outreachCase.dateOfFirstContact.split('T')[0]
         : new Date().toISOString().split('T')[0],
+      poc: outreachCase.discovery?.sourceOfDiscovery || '',
       modeOfDiscovery: outreachCase.discovery?.mode || 'Outside Prison',
       familyMember: {
         name: outreachCase.contactPerson?.name || '',
@@ -319,6 +321,137 @@ export const useSlcStore = create((set, get) => ({
       }));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to delete record');
+    }
+  },
+
+  // Upload a document (FIR, Chargesheet, etc.) to Cloudinary with upload progress tracking
+  uploadCaseDocument: async (caseId, file, documentType, onProgress) => {
+    if (!caseId) {
+      toast.error('Please save the case first before uploading documents.');
+      return false;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('documentType', documentType || 'FIR');
+    formData.append('title', file.name);
+
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await axios.post(
+        `${apiInstance}/outreach/${caseId}/documents`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+          onUploadProgress: (progressEvent) => {
+            if (onProgress && progressEvent.total) {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              onProgress(percentCompleted);
+            }
+          },
+        }
+      );
+
+      toast.success('Document uploaded successfully!');
+      const updatedFiles = res.data.attachedFiles || [];
+      const updatedDocSub = res.data.documentsSubmitted || [];
+
+      set((state) => {
+        const updateItem = (item) => {
+          if (item._id === caseId) {
+            return {
+              ...item,
+              attachedFiles: updatedFiles,
+              documentsSubmitted: updatedDocSub,
+            };
+          }
+          return item;
+        };
+
+        return {
+          slcList: state.slcList.map(updateItem),
+          outreachCases: state.outreachCases.map(updateItem),
+          selectedRecord:
+            state.selectedRecord?._id === caseId
+              ? {
+                  ...state.selectedRecord,
+                  attachedFiles: updatedFiles,
+                  documentsSubmitted: updatedDocSub,
+                }
+              : state.selectedRecord,
+          formData: {
+            ...state.formData,
+            attachedFiles: updatedFiles,
+            documentsSubmitted: updatedDocSub,
+          },
+        };
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error(err.response?.data?.message || 'Failed to upload document');
+      return false;
+    }
+  },
+
+  // Delete an attached document from Cloudinary and case record
+  deleteCaseDocument: async (caseId, fileId) => {
+    if (!caseId || !fileId) return false;
+    if (!window.confirm('Are you sure you want to delete this attached document?')) return false;
+
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await axios.delete(
+        `${apiInstance}/outreach/${caseId}/documents/${fileId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      toast.success('Document deleted successfully');
+      const updatedFiles = res.data.attachedFiles || [];
+
+      set((state) => {
+        const updateItem = (item) => {
+          if (item._id === caseId) {
+            return {
+              ...item,
+              attachedFiles: updatedFiles,
+            };
+          }
+          return item;
+        };
+
+        return {
+          slcList: state.slcList.map(updateItem),
+          outreachCases: state.outreachCases.map(updateItem),
+          selectedRecord:
+            state.selectedRecord?._id === caseId
+              ? {
+                  ...state.selectedRecord,
+                  attachedFiles: updatedFiles,
+                }
+              : state.selectedRecord,
+          formData: {
+            ...state.formData,
+            attachedFiles: updatedFiles,
+          },
+        };
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error(err.response?.data?.message || 'Failed to delete document');
+      return false;
     }
   },
 }));

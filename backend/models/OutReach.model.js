@@ -169,6 +169,60 @@ const FollowUpSchema = new Schema(
   { _id: true, timestamps: true }
 );
 
+// Schema for uploaded case documents (FIR, Chargesheet, etc.)
+export const AttachedFileSchema = new Schema(
+  {
+    documentType: {
+      type: String,
+      enum: [...DOCUMENTS_SUBMITTED_OPTIONS, 'Other'],
+      default: 'FIR',
+      trim: true,
+    },
+    title: {
+      type: String,
+      trim: true,
+    },
+    originalName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    fileUrl: {
+      type: String,
+      required: true,
+    },
+    publicId: {
+      type: String,
+      required: true,
+    },
+    fileType: {
+      type: String, // e.g. 'application/pdf', 'image/jpeg'
+    },
+    resourceType: {
+      type: String, // 'image' | 'raw'
+      default: 'auto',
+    },
+    fileSize: {
+      type: Number, // in bytes
+    },
+    uploadedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    uploadedByRole: {
+      type: String,
+    },
+    uploadedByName: {
+      type: String,
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: true, timestamps: true }
+);
+
 // Unified Case Schema (Created by Outreach, enriched directly by Socio-Legal Counselling)
 const OutreachSchema = new Schema(
   {
@@ -377,6 +431,9 @@ const OutreachSchema = new Schema(
 
     // Follow-up Calls & Timeline
     followUps: [FollowUpSchema],
+
+    // Uploaded Documents & Case Files (FIR, Chargesheet, etc.)
+    attachedFiles: [AttachedFileSchema],
   },
   {
     timestamps: true,

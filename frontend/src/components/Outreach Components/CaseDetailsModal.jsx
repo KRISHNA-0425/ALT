@@ -159,6 +159,43 @@ export default function CaseDetailsModal({
             </div>
           </div>
 
+          {/* Attached Case Documents (FIR, Chargesheet, etc.) */}
+          {selectedCase.attachedFiles && selectedCase.attachedFiles.length > 0 && (
+            <div className="rounded-2xl border border-gray-200 p-5 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                Attached Documents ({selectedCase.attachedFiles.length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {selectedCase.attachedFiles.map((file, idx) => (
+                  <div
+                    key={file._id || file.publicId || idx}
+                    className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-200"
+                  >
+                    <div className="overflow-hidden pr-2">
+                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 mb-1">
+                        {file.documentType || 'Document'}
+                      </span>
+                      <p className="text-xs font-semibold text-gray-800 truncate" title={file.originalName}>
+                        {file.originalName || file.title || 'Case Document'}
+                      </p>
+                    </div>
+                    <a
+                      href={file.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition border border-indigo-200"
+                    >
+                      View
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Follow-up Timeline */}
           <div className="rounded-2xl border border-gray-200 p-5 space-y-3">
             <div className="flex items-center justify-between">

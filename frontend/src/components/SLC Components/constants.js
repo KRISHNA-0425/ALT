@@ -145,4 +145,5 @@ export const initialSlcFormState = {
   supportNeeded: [],
   initialCallNotes: '',
   followUps: [],
+  attachedFiles: [],
 };
