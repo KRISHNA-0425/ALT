@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { useSlcStore } from '../../store/useSlcStore';
 import {
-  DOCUMENTS_SUBMITTED_OPTIONS,
   TIER_OPTIONS,
   CRIME_CATEGORY_OPTIONS,
   PRISONER_TYPE_OPTIONS,
@@ -32,18 +32,56 @@ export default function SlcModal() {
   } = useSlcStore();
 
   const [activeTab, setActiveTab] = useState('demographics');
+  const contentRef = useRef(null);
 
   if (!isModalOpen) return null;
 
-  // Helpers for multi-select arrays
-  const toggleDocument = (doc) => {
-    const list = formData.documentsSubmitted || [];
-    const exists = list.includes(doc);
-    setFormData({
-      ...formData,
-      documentsSubmitted: exists ? list.filter((d) => d !== doc) : [...list, doc],
-    });
+  const TABS = [
+    { id: 'demographics', label: '1. Demographics & Family', title: 'Demographics & Family' },
+    { id: 'incarceration', label: '2. Documents & Priority', title: 'Documents & Priority' },
+    { id: 'legal', label: '3. Legal Assessment', title: 'Legal Assessment' },
+    { id: 'court', label: '4. Court & Support', title: 'Court & Support' },
+    { id: 'followups', label: `5. Follow-ups (${formData.followUps?.length || 0})`, title: `Follow-ups (${formData.followUps?.length || 0})` },
+  ];
+
+  const currentTabIndex = Math.max(0, TABS.findIndex((t) => t.id === activeTab));
+  const isLastStep = currentTabIndex === TABS.length - 1;
+
+  const handleNext = () => {
+    if (currentTabIndex < TABS.length - 1) {
+      if (activeTab === 'demographics' && (!formData.inmate?.name || !formData.inmate.name.trim())) {
+        toast.error('Inmate name is required to proceed');
+        return;
+      }
+      const nextTab = TABS[currentTabIndex + 1].id;
+      setActiveTab(nextTab);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
+
+  const handlePrev = () => {
+    if (currentTabIndex > 0) {
+      const prevTab = TABS[currentTabIndex - 1].id;
+      setActiveTab(prevTab);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleTabClick = (tabId) => {
+    setActiveTab(tabId);
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const onFormSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!isLastStep) {
+      handleNext();
+    } else {
+      handleSubmit(e);
+    }
+  };
+
+  // Helpers for multi-select arrays
 
   const toggleSupportNeeded = (sup) => {
     const list = formData.supportNeeded || [];
@@ -55,12 +93,12 @@ export default function SlcModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 p-4 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl border border-gray-100 flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 p-3 sm:p-4 backdrop-blur-xs transition-opacity animate-in fade-in duration-200 overflow-y-auto">
+      <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl border border-gray-100 flex flex-col h-[90vh] max-h-[850px] overflow-hidden my-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 bg-white shrink-0">
           <div className="flex items-center gap-3">
-            <span className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+            <span className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
               SLC
             </span>
             <div>
@@ -80,7 +118,7 @@ export default function SlcModal() {
           <button
             type="button"
             onClick={closeModal}
-            className="text-gray-400 hover:text-gray-600 rounded-lg p-1.5 transition cursor-pointer"
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1.5 transition cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -89,31 +127,38 @@ export default function SlcModal() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-gray-200 px-6 bg-gray-50/70 overflow-x-auto text-xs font-semibold">
-          {[
-            { id: 'demographics', label: '1. Demographics & Family' },
-            { id: 'incarceration', label: '2. Documents & Priority' },
-            { id: 'legal', label: '3. Legal Assessment' },
-            { id: 'court', label: '4. Court & Support' },
-            { id: 'followups', label: `5. Follow-ups (${formData.followUps?.length || 0})` },
-          ].map((tab) => (
+        <div className="flex border-b border-gray-200 px-6 bg-gray-50/70 overflow-x-auto overflow-y-hidden shrink-0 text-xs font-semibold">
+          {TABS.map((tab, idx) => (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-3 px-4 border-b-2 whitespace-nowrap transition cursor-pointer ${
+              onClick={() => handleTabClick(tab.id)}
+              className={`py-3.5 px-4 border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
                 activeTab === tab.id
-                  ? 'border-indigo-600 text-indigo-600 bg-white'
+                  ? 'border-indigo-600 text-indigo-600 bg-white font-bold'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              {tab.label}
+              <span
+                className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition ${
+                  activeTab === tab.id
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : currentTabIndex > idx
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                {currentTabIndex > idx ? '✓' : idx + 1}
+              </span>
+              <span>{tab.title}</span>
             </button>
           ))}
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Form Body with Fixed Footer */}
+        <form onSubmit={onFormSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Scrollable Tab Content Body */}
+          <div ref={contentRef} className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
           {/* TAB 1: Demographics & Family */}
           {activeTab === 'demographics' && (
             <div className="space-y-4 animate-in fade-in duration-150">
@@ -376,35 +421,10 @@ export default function SlcModal() {
           {activeTab === 'incarceration' && (
             <div className="space-y-4 animate-in fade-in duration-150">
               <h4 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">
-                Documents Submitted & Priority Tier
+                Priority Tier & Prisoner Details
               </h4>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">
-                  Documents Submitted (Select all that apply)
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {DOCUMENTS_SUBMITTED_OPTIONS.map((doc) => {
-                    const isSelected = (formData.documentsSubmitted || []).includes(doc);
-                    return (
-                      <button
-                        key={doc}
-                        type="button"
-                        onClick={() => toggleDocument(doc)}
-                        className={`rounded-xl px-3 py-1.5 text-xs font-semibold border transition cursor-pointer ${
-                          isSelected
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {isSelected ? '✓ ' : '+ '} {doc}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Priority Tier</label>
                   <select
@@ -894,22 +914,66 @@ export default function SlcModal() {
             </div>
           )}
 
-          {/* Modal Footer */}
-          <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={closeModal}
-              className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition cursor-pointer disabled:opacity-60"
-            >
-              {submitting ? 'Saving Case...' : isEditMode ? 'Update Socio-Legal Case' : 'Create Socio-Legal Case'}
-            </button>
+          </div>
+
+          {/* Modal Footer Controls */}
+          <div className="bg-gray-50 border-t border-gray-200 px-6 py-3.5 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              {currentTabIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>←</span>
+                  <span>Back</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-gray-400 hidden sm:inline">
+                Section {currentTabIndex + 1} of {TABS.length}
+              </span>
+
+              {!isLastStep ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition cursor-pointer flex items-center gap-2"
+                >
+                  <span>Next Section</span>
+                  <span>→</span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="rounded-xl bg-indigo-600 px-7 py-2.5 text-sm font-bold text-white shadow-md hover:bg-indigo-500 transition cursor-pointer disabled:opacity-60 flex items-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      <span>Saving Case...</span>
+                    </>
+                  ) : isEditMode ? (
+                    'Update Socio-Legal Case'
+                  ) : (
+                    'Create Socio-Legal Case'
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </div>

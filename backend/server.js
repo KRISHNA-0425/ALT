@@ -22,8 +22,20 @@ export const NODE_ENV = process.env.NODE_ENV || 'development';
 const app = express();
 const port = process.env.PORT || 3000;
 
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173'
+].filter(Boolean);
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL,
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -49,6 +61,14 @@ const startServer = async () => {
         await connectDb();
         const server = app.listen(port, () => {
             console.log(`server is running in ${NODE_ENV} mode at port: ${port}`);
+        });
+
+        server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                console.error(`Port ${port} is already in use by another process.`);
+            } else {
+                console.error('Server error:', err);
+            }
         });
 
         // Set server timeout to 1 hour to support large file uploads up to 2 GB
