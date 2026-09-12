@@ -467,7 +467,12 @@ export const unassignAdvocateFromCase = async (req, res) => {
  */
 export const getMyAssignedCases = async (req, res) => {
   try {
-    const userID = req.query.userID || req.user?.userID;
+    const callerRole = req.user?.roles || req.user?.role;
+    // If authenticated user is an Advocate, strictly enforce their authenticated userID from JWT
+    const userID = (callerRole === 'ADV' && req.user?.userID)
+      ? req.user.userID
+      : (req.user?.userID || req.query.userID);
+
     if (!userID) {
       return res.status(401).json({ message: 'Unauthorized. Advocate identification missing.' });
     }
@@ -478,7 +483,7 @@ export const getMyAssignedCases = async (req, res) => {
     const advocate = await Advocate.findOne({ userID: normalizedUserId });
     const advocateObjectId = advocate?._id;
 
-    // Filter by userID or advocateId
+    // Filter strictly by this advocate's userID or advocateId
     const advocateFilter = {
       $or: [
         { 'assignedAdvocate.userID': normalizedUserId },
@@ -542,6 +547,26 @@ export const addAdvocateCaseFields = async (req, res) => {
     if (!caseDoc) {
       if (localFilePath) await removeLocalFile(localFilePath);
       return res.status(404).json({ message: 'Case file not found' });
+    }
+
+    // Verify that ONLY the appointed advocate can access or modify this case
+    const assignedAdv = caseDoc.assignedAdvocate;
+    const appointedUserID = assignedAdv?.userID ? assignedAdv.userID.trim().toUpperCase() : null;
+    const appointedAdvId = assignedAdv?.advocateId ? assignedAdv.advocateId.toString() : null;
+
+    const callerRole = req.user?.roles || req.user?.role;
+    const callerUserID = (req.user?.userID || req.body?.advocateUserID || req.query?.advocateUserID || '').trim().toUpperCase();
+
+    if (callerRole === 'ADV' || callerUserID.startsWith('ADV')) {
+      const isAppointed = (appointedUserID && callerUserID === appointedUserID) ||
+                          (appointedAdvId && req.user?._id && req.user._id.toString() === appointedAdvId);
+
+      if (!isAppointed) {
+        if (localFilePath) await removeLocalFile(localFilePath);
+        return res.status(403).json({
+          message: 'Access denied: Only the appointed advocate for this case can add documents, hearing dates, or case notes.',
+        });
+      }
     }
 
     const { documentNotes, hearingDate, hearingNotes, bailApplicationsFiled } = req.body;
