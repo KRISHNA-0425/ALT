@@ -229,18 +229,44 @@ export const getTopAdvocates = async (req, res) => {
       query.specialization = new RegExp(`^${targetSpec}$`, 'i');
     }
 
-    const advocates = await Advocate.find(query);
+    let advocates = await Advocate.find(query);
+    let isFallback = false;
 
-    // Compute win rate and rank: winRate desc, casesWon desc, experience desc
-    const rankedAdvocates = advocates
-      .map((adv) => {
-        const rate = adv.casesTaken > 0 ? (adv.casesWon / adv.casesTaken) * 100 : 0;
-        return {
-          ...adv.toObject(),
-          winRate: parseFloat(rate.toFixed(1)),
-        };
-      })
-      .sort((a, b) => b.winRate - a.winRate || b.casesWon - a.casesWon || b.yearsOfExperience - a.yearsOfExperience);
+    // Helper to compute win rate and rank: winRate desc, casesWon desc, experience desc
+    const rankList = (list) =>
+      list
+        .map((adv) => {
+          const rate = adv.casesTaken > 0 ? (adv.casesWon / adv.casesTaken) * 100 : 0;
+          return {
+            ...adv.toObject(),
+            winRate: parseFloat(rate.toFixed(1)),
+          };
+        })
+        .sort(
+          (a, b) =>
+            b.winRate - a.winRate ||
+            b.casesWon - a.casesWon ||
+            b.yearsOfExperience - a.yearsOfExperience
+        );
+
+    let rankedAdvocates = rankList(advocates);
+
+    // If the advocate isn't specialized or fewer than 3 advocates are specialized in this field,
+    // automatically return / supplement with the top overall advocates
+    if (rankedAdvocates.length < 3) {
+      isFallback = true;
+      const allAdvocates = await Advocate.find({});
+      const allRanked = rankList(allAdvocates);
+      const existingIds = new Set(rankedAdvocates.map((a) => a._id.toString()));
+
+      for (const adv of allRanked) {
+        if (!existingIds.has(adv._id.toString())) {
+          rankedAdvocates.push(adv);
+          existingIds.add(adv._id.toString());
+          if (rankedAdvocates.length >= 3) break;
+        }
+      }
+    }
 
     const topThree = rankedAdvocates.slice(0, 3);
 
@@ -250,6 +276,7 @@ export const getTopAdvocates = async (req, res) => {
       offence: offence || null,
       topAdvocates: topThree,
       allMatching: rankedAdvocates,
+      isFallback,
     });
   } catch (error) {
     console.error('Error fetching top advocates:', error);

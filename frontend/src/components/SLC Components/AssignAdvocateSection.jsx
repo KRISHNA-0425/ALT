@@ -18,6 +18,7 @@ export default function AssignAdvocateSection({ formData, setFormData }) {
   const [selectedSpecialization, setSelectedSpecialization] = useState('');
   const [topAdvocates, setTopAdvocates] = useState([]);
   const [targetSpecialization, setTargetSpecialization] = useState('');
+  const [isFallback, setIsFallback] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showAllModal, setShowAllModal] = useState(false);
@@ -45,6 +46,7 @@ export default function AssignAdvocateSection({ formData, setFormData }) {
       setTopAdvocates(res.data.topAdvocates || []);
       setAllAdvocates(res.data.allMatching || []);
       setTargetSpecialization(res.data.targetSpecialization || '');
+      setIsFallback(Boolean(res.data.isFallback));
     } catch (err) {
       console.error('Error fetching top advocates:', err);
       setError(err.response?.data?.message || 'Failed to load specialized advocates');
@@ -167,13 +169,18 @@ export default function AssignAdvocateSection({ formData, setFormData }) {
       )}
 
       {/* Detected Offence Notice */}
-      <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs text-gray-700">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs text-gray-700">
         <div>
           <span>Case Offence: </span>
           <strong className="text-indigo-700 font-bold">{selectedOffence || 'Attempt to Murder'}</strong>
           <span className="mx-2 text-gray-300">|</span>
           <span>Matched Specialization: </span>
           <strong className="text-purple-700 font-bold">{targetSpecialization || 'Murder'}</strong>
+          {isFallback && (
+            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+              ⚡ Top Overall Advocates (Unspecialized Offence)
+            </span>
+          )}
         </div>
         <span className="text-gray-400 text-[11px]">Ranked by Win Rate & Cases Won</span>
       </div>

@@ -74,7 +74,7 @@ export const seedAllAdvocates = async () => {
       console.log('MongoDB connected successfully.');
     }
 
-    const defaultPasswordHash = await bcryptjs.hash('advocate123', 10);
+    const defaultPasswordHash = await bcryptjs.hash('12345678', 10);
 
     const advocateDocs = [];
     const userDocs = [];
