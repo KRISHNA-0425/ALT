@@ -5,6 +5,9 @@ import Advocate from '../models/Advocate.model.js';
 import User from '../models/User.model.js';
 
 dotenv.config();
+if (process.env.NODE_ENV === 'production') {
+  dotenv.config({ path: '.env.production', override: true });
+}
 
 export const rawAdvocateData = [
   { name: "Kritika Mehta", yearsOfExperience: 2, casesTaken: 33, casesWon: 19, specialization: "Assault", practiceCourt: "District Courts, Rohini" },
@@ -120,7 +123,7 @@ export const seedAllAdvocates = async () => {
 
     console.log('\n--- Sample Advocate Credentials ---');
     for (let i = 0; i < Math.min(5, advocateDocs.length); i++) {
-      console.log(`Name: ${advocateDocs[i].name} | UserID: ${advocateDocs[i].userID} | Default Password: advocate123`);
+      console.log(`Name: ${advocateDocs[i].name} | UserID: ${advocateDocs[i].userID} | Default Password: 12345678`);
     }
     console.log('------------------------------------\n');
 
