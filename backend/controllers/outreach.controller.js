@@ -166,10 +166,52 @@ export const getOutreachById = async (req, res) => {
 export const updateOutreach = async (req, res) => {
     try {
         const { id } = req.params;
-        const updateData = req.body;
+        const updateData = { ...req.body };
+
+        // Clean immutable and metadata fields
+        delete updateData._id;
+        delete updateData.__v;
+        delete updateData.createdAt;
+        delete updateData.updatedAt;
 
         const existingRecord = await Outreach.findById(id).select('assignedAdvocate inmate slcNo sNo');
-        const prevAdvocateId = existingRecord?.assignedAdvocate?.userID || existingRecord?.assignedAdvocate?.advocateId?.toString();
+        if (!existingRecord) {
+            return res.status(404).json({ message: 'Outreach record not found' });
+        }
+        const prevAdvocateId = existingRecord.assignedAdvocate?.userID || existingRecord.assignedAdvocate?.advocateId?.toString();
+
+        // Handle slcNo auto-assignment or sanitization
+        if (updateData.slcNo !== undefined) {
+            if (typeof updateData.slcNo === 'number' && updateData.slcNo > 0) {
+                // valid number kept
+            } else if (typeof updateData.slcNo === 'string' && updateData.slcNo.trim().length > 0 && !isNaN(Number(updateData.slcNo))) {
+                updateData.slcNo = Number(updateData.slcNo);
+            } else if (existingRecord.slcNo) {
+                // keep existing slcNo if empty was passed
+                updateData.slcNo = existingRecord.slcNo;
+            } else if (updateData.tier || updateData.legalAssessment || updateData.prisonDetails) {
+                // Enriching case with SLC assessment for the first time: auto-assign next slcNo
+                const highest = await Outreach.findOne({ slcNo: { $type: 'number' } }).sort({ slcNo: -1 }).select('slcNo');
+                updateData.slcNo = highest && highest.slcNo ? highest.slcNo + 1 : 1;
+            } else {
+                delete updateData.slcNo;
+            }
+        }
+
+        // Clean empty strings on date and numeric fields to prevent Mongoose CastErrors
+        if (updateData.dateOfArrest === '') delete updateData.dateOfArrest;
+        if (updateData.dateOfContact === '') delete updateData.dateOfContact;
+        if (updateData.dateOfFirstContact === '') delete updateData.dateOfFirstContact;
+        if (updateData.durationInCustodyMonths === '') delete updateData.durationInCustodyMonths;
+        if (updateData.caseDetails) {
+            if (updateData.caseDetails.nextHearingDate === '') delete updateData.caseDetails.nextHearingDate;
+            if (updateData.caseDetails.bailApplicationsFiled === '') delete updateData.caseDetails.bailApplicationsFiled;
+        }
+        if (updateData.legalAssessment) {
+            if (updateData.legalAssessment.rliScore === '') delete updateData.legalAssessment.rliScore;
+            if (updateData.legalAssessment.numberOfPendingCases === '') delete updateData.legalAssessment.numberOfPendingCases;
+            if (updateData.legalAssessment.firstTimeOffender === '') delete updateData.legalAssessment.firstTimeOffender;
+        }
 
         const updatedOutreach = await Outreach.findByIdAndUpdate(
             id,

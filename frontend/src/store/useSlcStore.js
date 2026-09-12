@@ -272,6 +272,15 @@ export const useSlcStore = create((set, get) => ({
         },
       };
 
+      // Clean metadata and empty slcNo
+      delete payload._id;
+      delete payload.__v;
+      delete payload.createdAt;
+      delete payload.updatedAt;
+      if (payload.slcNo === '' || payload.slcNo === null) {
+        delete payload.slcNo;
+      }
+
       if (currentId) {
         // Enrich or update the existing document
         const res = await axios.put(`${apiInstance}/outreach/${currentId}`, payload, getAuthHeaders());

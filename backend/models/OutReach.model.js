@@ -367,9 +367,6 @@ const OutreachSchema = new Schema(
     // -------------------------------------------------------------
     slcNo: {
       type: Number,
-      unique: true,
-      sparse: true,
-      index: true,
     },
     poc: {
       type: String,
@@ -503,6 +500,10 @@ const OutreachSchema = new Schema(
 OutreachSchema.index({ 'contactPerson.phoneNumbers': 1 });
 OutreachSchema.index({ 'inmate.name': 'text', 'contactPerson.name': 'text', 'caseDetails.firNumber': 'text' });
 OutreachSchema.index({ 'discovery.sourceOfDiscovery': 1 });
+OutreachSchema.index(
+  { slcNo: 1 },
+  { unique: true, partialFilterExpression: { slcNo: { $type: 'number' } } }
+);
 OutreachSchema.index({ tier: 1, 'legalAssessment.crimeCategory': 1 });
 
 const Outreach = mongoose.models.Outreach || mongoose.model('Outreach', OutreachSchema);

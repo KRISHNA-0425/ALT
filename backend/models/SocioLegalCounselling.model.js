@@ -112,9 +112,6 @@ const SocioLegalCounsellingSchema = new Schema(
     // Basic Case Identifiers (Columns A - H)
     slcNo: {
       type: Number,
-      unique: true,
-      sparse: true,
-      index: true,
     },
     dateOfContact: {
       type: Date,
@@ -282,6 +279,10 @@ const SocioLegalCounsellingSchema = new Schema(
 );
 
 // Indexes for common queries
+SocioLegalCounsellingSchema.index(
+  { slcNo: 1 },
+  { unique: true, partialFilterExpression: { slcNo: { $type: 'number' } } }
+);
 SocioLegalCounsellingSchema.index({ tier: 1, 'legalAssessment.crimeCategory': 1 });
 SocioLegalCounsellingSchema.index({ 'inmate.name': 'text', 'caseDetails.firNumber': 'text' });
 
