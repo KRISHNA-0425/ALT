@@ -175,6 +175,13 @@ export const updateSlcRecord = async (req, res) => {
       return res.status(404).json({ message: 'SLC record not found' });
     }
 
+    // Cross-synchronize assignedAdvocate with the parent Outreach record
+    if (req.body.assignedAdvocate !== undefined && updated.outreachId) {
+      await Outreach.findByIdAndUpdate(updated.outreachId, {
+        $set: { assignedAdvocate: req.body.assignedAdvocate },
+      });
+    }
+
     // Detect if an advocate was newly assigned or changed
     const newAdvocate = updated.assignedAdvocate;
     const newAdvocateId = newAdvocate?.userID || newAdvocate?.advocateId?.toString();

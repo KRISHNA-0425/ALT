@@ -930,7 +930,7 @@ export default function AdvocateDashboard() {
                     <input
                       id="adv-doc-notes"
                       type="text"
-                      placeholder="e.g. Bail Application Draft / Vakalatnama / High Court Order"
+                      placeholder="e.g. Vakalatnama / High Court Order / Case Submissions"
                       value={documentNotes}
                       onChange={(e) => {
                         const val = e.target.value;

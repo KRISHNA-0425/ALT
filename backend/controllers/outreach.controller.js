@@ -1,4 +1,5 @@
 import Outreach from '../models/OutReach.model.js';
+import SocioLegalCounselling from '../models/SocioLegalCounselling.model.js';
 import Notification from '../models/Notification.model.js';
 import {
   sendNewOutreachCaseNotification,
@@ -178,6 +179,14 @@ export const updateOutreach = async (req, res) => {
 
         if (!updatedOutreach) {
             return res.status(404).json({ message: 'Outreach record not found' });
+        }
+
+        // Cross-synchronize assignedAdvocate with any linked SocioLegalCounselling record
+        if (updateData.assignedAdvocate !== undefined) {
+            await SocioLegalCounselling.updateMany(
+                { outreachId: id },
+                { $set: { assignedAdvocate: updateData.assignedAdvocate } }
+            );
         }
 
         // Detect if an advocate was newly assigned or changed

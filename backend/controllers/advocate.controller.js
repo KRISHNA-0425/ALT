@@ -104,12 +104,66 @@ export const getMyAdvocateProfile = async (req, res) => {
 };
 
 /**
- * @desc Get all advocates with case-insensitive search and filtering
+ * Helper to get map of all currently assigned/busy advocates across Outreach and SLC.
+ * An advocate is busy if they are currently assigned to any active case in either collection.
+ */
+export const getBusyAdvocatesMap = async () => {
+  const busyMap = new Map(); // key: normalized userID & string advocateId -> case summary
+
+  const query = {
+    $or: [
+      { 'assignedAdvocate.userID': { $exists: true, $nin: [null, ''] } },
+      { 'assignedAdvocate.advocateId': { $exists: true, $ne: null } },
+    ],
+  };
+
+  const [outreachCases, slcCases] = await Promise.all([
+    Outreach.find(query).select('assignedAdvocate inmate sNo slcNo'),
+    SocioLegalCounselling.find(query).select('assignedAdvocate inmate slcNo outreachId'),
+  ]);
+
+  const recordBusy = (doc, collName) => {
+    const adv = doc.assignedAdvocate;
+    if (!adv) return;
+
+    const uId = adv.userID ? adv.userID.trim().toUpperCase() : null;
+    const objId = adv.advocateId ? adv.advocateId.toString() : null;
+    const caseNum = doc.slcNo
+      ? `SLC #${doc.slcNo}`
+      : doc.sNo
+      ? `OutReach #${doc.sNo}`
+      : `Case #${doc._id.toString().slice(-6)}`;
+    const inmate = doc.inmate?.name || 'Inmate';
+
+    const info = {
+      caseId: doc._id.toString(),
+      caseNumber: caseNum,
+      inmateName: inmate,
+      advocateName: adv.name,
+      advocateUserID: uId,
+      assignedAt: adv.assignedAt,
+      collection: collName,
+    };
+
+    if (uId) busyMap.set(uId, info);
+    if (objId) busyMap.set(objId, info);
+  };
+
+  outreachCases.forEach((c) => recordBusy(c, 'Outreach'));
+  slcCases.forEach((c) => recordBusy(c, 'SocioLegalCounselling'));
+
+  return busyMap;
+};
+
+/**
+ * @desc Get all advocates with case-insensitive search and filtering, annotated with availability
  * @route GET /api/advocates
  */
 export const getAllAdvocates = async (req, res) => {
   try {
-    const { search, specialization, practiceCourt } = req.query;
+    const { search, specialization, practiceCourt, availableOnly } = req.query;
+    const busyMap = await getBusyAdvocatesMap();
+
     let query = {};
 
     if (search && typeof search === 'string' && search.trim()) {
@@ -135,10 +189,30 @@ export const getAllAdvocates = async (req, res) => {
 
     const advocates = await Advocate.find(query).sort({ yearsOfExperience: -1, casesWon: -1 });
 
+    let mapped = advocates.map((adv) => {
+      const rate = adv.casesTaken > 0 ? (adv.casesWon / adv.casesTaken) * 100 : 0;
+      const uId = adv.userID ? adv.userID.trim().toUpperCase() : '';
+      const isAssigned = busyMap.has(uId) || busyMap.has(adv._id.toString());
+      const busyInfo = isAssigned ? (busyMap.get(uId) || busyMap.get(adv._id.toString())) : null;
+
+      return {
+        ...adv.toObject(),
+        winRate: parseFloat(rate.toFixed(1)),
+        isAssigned,
+        isAvailable: !isAssigned,
+        assignedCase: busyInfo,
+      };
+    });
+
+    if (availableOnly === 'true' || availableOnly === true) {
+      mapped = mapped.filter((adv) => adv.isAvailable);
+    }
+
     return res.status(200).json({
       message: 'Advocates fetched successfully',
-      count: advocates.length,
-      data: advocates,
+      count: mapped.length,
+      availableCount: mapped.filter((a) => a.isAvailable).length,
+      data: mapped,
     });
   } catch (error) {
     console.error('Error fetching advocates:', error);
@@ -165,9 +239,19 @@ export const getAdvocateById = async (req, res) => {
       return res.status(404).json({ message: 'Advocate not found' });
     }
 
+    const busyMap = await getBusyAdvocatesMap();
+    const uId = advocate.userID ? advocate.userID.trim().toUpperCase() : '';
+    const isAssigned = busyMap.has(uId) || busyMap.has(advocate._id.toString());
+    const assignedCase = isAssigned ? (busyMap.get(uId) || busyMap.get(advocate._id.toString())) : null;
+
     return res.status(200).json({
       message: 'Advocate fetched successfully',
-      advocate,
+      advocate: {
+        ...advocate.toObject(),
+        isAssigned,
+        isAvailable: !isAssigned,
+        assignedCase,
+      },
     });
   } catch (error) {
     console.error('Error fetching advocate:', error);
@@ -176,12 +260,14 @@ export const getAdvocateById = async (req, res) => {
 };
 
 /**
- * @desc Get Top 3 Advocates specialized in a given offence / legal field
+ * @desc Get Top 3 Currently Available Advocates specialized in a given offence / legal field
  * @route GET /api/advocates/top
  */
 export const getTopAdvocates = async (req, res) => {
   try {
     const { offence, specialization } = req.query;
+
+    const busyMap = await getBusyAdvocatesMap();
 
     const OFFENCE_TO_SPECIALIZATION_MAP = {
       'attempt to murder': 'Murder',
@@ -237,9 +323,16 @@ export const getTopAdvocates = async (req, res) => {
       list
         .map((adv) => {
           const rate = adv.casesTaken > 0 ? (adv.casesWon / adv.casesTaken) * 100 : 0;
+          const uId = adv.userID ? adv.userID.trim().toUpperCase() : '';
+          const isAssigned = busyMap.has(uId) || busyMap.has(adv._id.toString());
+          const busyInfo = isAssigned ? (busyMap.get(uId) || busyMap.get(adv._id.toString())) : null;
+
           return {
             ...adv.toObject(),
             winRate: parseFloat(rate.toFixed(1)),
+            isAssigned,
+            isAvailable: !isAssigned,
+            assignedCase: busyInfo,
           };
         })
         .sort(
@@ -249,17 +342,31 @@ export const getTopAdvocates = async (req, res) => {
             b.yearsOfExperience - a.yearsOfExperience
         );
 
-    let rankedAdvocates = rankList(advocates);
+    // Filter ONLY currently available advocates (free) for recommendations
+    const availableSpecialists = rankList(
+      advocates.filter((adv) => {
+        const uId = adv.userID ? adv.userID.trim().toUpperCase() : '';
+        return !busyMap.has(uId) && !busyMap.has(adv._id.toString());
+      })
+    );
 
-    // If the advocate isn't specialized or fewer than 3 advocates are specialized in this field,
-    // automatically return / supplement with the top overall advocates
+    let rankedAdvocates = [...availableSpecialists];
+
+    // If fewer than 3 available specialized advocates exist,
+    // supplement / fallback with top available advocates overall
     if (rankedAdvocates.length < 3) {
       isFallback = true;
       const allAdvocates = await Advocate.find({});
-      const allRanked = rankList(allAdvocates);
+      const allAvailable = rankList(
+        allAdvocates.filter((adv) => {
+          const uId = adv.userID ? adv.userID.trim().toUpperCase() : '';
+          return !busyMap.has(uId) && !busyMap.has(adv._id.toString());
+        })
+      );
+
       const existingIds = new Set(rankedAdvocates.map((a) => a._id.toString()));
 
-      for (const adv of allRanked) {
+      for (const adv of allAvailable) {
         if (!existingIds.has(adv._id.toString())) {
           rankedAdvocates.push(adv);
           existingIds.add(adv._id.toString());
@@ -270,17 +377,87 @@ export const getTopAdvocates = async (req, res) => {
 
     const topThree = rankedAdvocates.slice(0, 3);
 
+    // Also build list of ALL available advocates across the entire directory for full picker
+    const allAdvocatesPool = await Advocate.find({});
+    const allAvailableOverall = rankList(
+      allAdvocatesPool.filter((adv) => {
+        const uId = adv.userID ? adv.userID.trim().toUpperCase() : '';
+        return !busyMap.has(uId) && !busyMap.has(adv._id.toString());
+      })
+    );
+
+    // List of currently busy advocates (with case info) for full visibility
+    const busyAdvocatesUnique = [];
+    const seenUserIds = new Set();
+    for (const info of busyMap.values()) {
+      if (info.advocateUserID && !seenUserIds.has(info.advocateUserID)) {
+        seenUserIds.add(info.advocateUserID);
+        busyAdvocatesUnique.push(info);
+      }
+    }
+
     return res.status(200).json({
-      message: 'Top advocates fetched successfully',
+      message: 'Top currently available advocates fetched successfully',
       targetSpecialization: targetSpec || 'All',
       offence: offence || null,
       topAdvocates: topThree,
       allMatching: rankedAdvocates,
+      allAvailableOverall,
+      totalAvailableCount: allAvailableOverall.length,
+      busyAdvocatesCount: busyAdvocatesUnique.length,
+      busyAdvocates: busyAdvocatesUnique,
       isFallback,
     });
   } catch (error) {
     console.error('Error fetching top advocates:', error);
     return res.status(500).json({ message: 'Failed to fetch top advocates', error: error.message });
+  }
+};
+
+/**
+ * @desc Unassign an advocate from a case in Outreach & Socio-Legal Counselling
+ * @route POST /api/advocates/cases/:id/unassign
+ */
+export const unassignAdvocateFromCase = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    let outreachDoc = await Outreach.findById(id);
+    let slcDoc = null;
+    let freedAdvocate = null;
+
+    if (outreachDoc) {
+      freedAdvocate = outreachDoc.assignedAdvocate;
+      outreachDoc.assignedAdvocate = null;
+      await outreachDoc.save();
+
+      slcDoc = await SocioLegalCounselling.findOne({ outreachId: id });
+      if (slcDoc) {
+        slcDoc.assignedAdvocate = null;
+        await slcDoc.save();
+      }
+    } else {
+      slcDoc = await SocioLegalCounselling.findById(id);
+      if (slcDoc) {
+        freedAdvocate = slcDoc.assignedAdvocate;
+        slcDoc.assignedAdvocate = null;
+        await slcDoc.save();
+
+        if (slcDoc.outreachId) {
+          await Outreach.findByIdAndUpdate(slcDoc.outreachId, { $set: { assignedAdvocate: null } });
+        }
+      } else {
+        return res.status(404).json({ message: 'Case record not found' });
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Advocate unassigned successfully. Advocate is now free for new cases.',
+      freedAdvocate,
+    });
+  } catch (error) {
+    console.error('Error unassigning advocate:', error);
+    return res.status(500).json({ message: 'Failed to unassign advocate', error: error.message });
   }
 };
 
