@@ -17,6 +17,7 @@ export default function SlcDashboard() {
     setActiveTab,
     fetchSlcRecords,
     openCreateModal,
+    search,
   } = useSlcStore();
 
   useEffect(() => {
@@ -34,12 +35,75 @@ export default function SlcDashboard() {
   const completedAssessmentCount = slcList.filter((i) => i.tier || i.slcNo).length;
 
   // Filter list by tab
-  const displayedCases =
+  const tabCases =
     activeTab === 'pending'
       ? slcList.filter((i) => !i.tier && !i.slcNo)
       : activeTab === 'assessed'
       ? slcList.filter((i) => i.tier || i.slcNo)
       : slcList;
+
+  // Real-time case-insensitive search filtering across all inmate and case fields
+  const searchLower = (search || '').trim().toLowerCase();
+  const displayedCases = searchLower
+    ? tabCases.filter((item) => {
+        // Inmate Name
+        if (item.inmate?.name && item.inmate.name.toLowerCase().includes(searchLower)) return true;
+        // Contact Person / Family Member Name
+        if (item.contactPerson?.name && item.contactPerson.name.toLowerCase().includes(searchLower)) return true;
+        if (item.familyMember?.name && item.familyMember.name.toLowerCase().includes(searchLower)) return true;
+        // POC
+        if (item.poc && item.poc.toLowerCase().includes(searchLower)) return true;
+        // FIR No, Police Station, Court
+        if (item.caseDetails?.firNumber && item.caseDetails.firNumber.toLowerCase().includes(searchLower)) return true;
+        if (item.caseDetails?.policeStation && item.caseDetails.policeStation.toLowerCase().includes(searchLower)) return true;
+        if (item.caseDetails?.court && item.caseDetails.court.toLowerCase().includes(searchLower)) return true;
+        // Offence types
+        if (item.inmate?.offenceType) {
+          const offences = Array.isArray(item.inmate.offenceType)
+            ? item.inmate.offenceType.join(' ')
+            : String(item.inmate.offenceType);
+          if (offences.toLowerCase().includes(searchLower)) return true;
+        }
+        if (item.inmate?.otherOffence && item.inmate.otherOffence.toLowerCase().includes(searchLower)) return true;
+        // Case sections
+        if (item.caseDetails?.caseSections) {
+          const sections = Array.isArray(item.caseDetails.caseSections)
+            ? item.caseDetails.caseSections.join(' ')
+            : String(item.caseDetails.caseSections);
+          if (sections.toLowerCase().includes(searchLower)) return true;
+        }
+        // Discovery source
+        if (item.discovery?.sourceOfDiscovery && item.discovery.sourceOfDiscovery.toLowerCase().includes(searchLower)) return true;
+        // Prison details
+        if (item.prisonDetails?.prisonName && item.prisonDetails.prisonName.toLowerCase().includes(searchLower)) return true;
+        if (item.prisonDetails?.prisonerType && item.prisonDetails.prisonerType.toLowerCase().includes(searchLower)) return true;
+        // Priority Tier and Crime category
+        if (item.tier && item.tier.toLowerCase().includes(searchLower)) return true;
+        if (item.legalAssessment?.crimeCategory && item.legalAssessment.crimeCategory.toLowerCase().includes(searchLower)) return true;
+        // Phone numbers
+        if (item.familyMember?.phoneNumber && item.familyMember.phoneNumber.toLowerCase().includes(searchLower)) return true;
+        if (item.contactPerson?.phoneNumbers) {
+          const phones = Array.isArray(item.contactPerson.phoneNumbers)
+            ? item.contactPerson.phoneNumbers.join(' ')
+            : String(item.contactPerson.phoneNumbers);
+          if (phones.toLowerCase().includes(searchLower)) return true;
+        }
+        // Numeric identifiers (SLC #, OutReach #)
+        if (item.slcNo !== undefined && item.slcNo !== null) {
+          const slcStr = String(item.slcNo).toLowerCase();
+          if (slcStr.includes(searchLower) || `slc #${slcStr}`.includes(searchLower) || `slc-${slcStr}`.includes(searchLower) || `slc ${slcStr}`.includes(searchLower)) {
+            return true;
+          }
+        }
+        if (item.sNo !== undefined && item.sNo !== null) {
+          const sNoStr = String(item.sNo).toLowerCase();
+          if (sNoStr.includes(searchLower) || `outreach #${sNoStr}`.includes(searchLower) || `#${sNoStr}`.includes(searchLower)) {
+            return true;
+          }
+        }
+        return false;
+      })
+    : tabCases;
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

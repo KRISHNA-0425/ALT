@@ -1,6 +1,8 @@
 import path from 'path';
 import fs from 'fs';
+import mongoose from 'mongoose';
 import Outreach, { DOCUMENTS_SUBMITTED_OPTIONS } from '../models/OutReach.model.js';
+import SocioLegalCounselling from '../models/SocioLegalCounselling.model.js';
 import { uploadLargeFile, deleteFromCloudinary, isCloudinaryConfigured } from '../config/cloudinary.js';
 import { removeLocalFile } from '../middlewares/upload.middleware.js';
 
@@ -36,7 +38,7 @@ export const uploadCaseDocument = async (req, res) => {
     // 1. If Cloudinary is configured, attempt upload to Cloudinary
     if (isCloudinaryConfigured()) {
       try {
-        const folderName = `counseling_cases/${caseDoc.slcNo || caseDoc.sNo || id}`;
+        const folderName = `socio_legal_documents/${caseDoc.slcNo || caseDoc.sNo || id}`;
         uploadResult = await uploadLargeFile(localFilePath, {
           resource_type: resourceType,
           folder: folderName,
@@ -64,7 +66,7 @@ export const uploadCaseDocument = async (req, res) => {
 
     // 2. Local Storage Fallback (if Cloudinary is unconfigured or rejected the key with 403)
     if (isLocalFallback) {
-      const permanentDir = path.join(process.cwd(), 'uploads', 'documents');
+      const permanentDir = path.join(process.cwd(), 'uploads', 'documents', 'socio_legal');
       if (!fs.existsSync(permanentDir)) {
         fs.mkdirSync(permanentDir, { recursive: true });
       }
@@ -75,7 +77,7 @@ export const uploadCaseDocument = async (req, res) => {
 
       const protocol = req.protocol || 'http';
       const host = req.get('host') || 'localhost:3000';
-      const fileUrl = `${protocol}://${host}/uploads/documents/${permFileName}`;
+      const fileUrl = `${protocol}://${host}/uploads/documents/socio_legal/${permFileName}`;
 
       uploadResult = {
         secure_url: fileUrl,
@@ -89,6 +91,7 @@ export const uploadCaseDocument = async (req, res) => {
     const newFileEntry = {
       documentType,
       title,
+      section: 'SocioLegal',
       originalName: file.originalname,
       fileUrl: uploadResult.secure_url || uploadResult.url,
       publicId: uploadResult.public_id,
@@ -228,3 +231,140 @@ export const getCaseDocuments = async (req, res) => {
     });
   }
 };
+
+/**
+ * View / Stream an attached document (PDF or Image) inline in browser tab without downloading
+ * GET /api/documents/view/:id/:fileId or GET /api/documents/view/:fileId
+ */
+export const viewCaseDocument = async (req, res) => {
+  const { id, fileId } = req.params;
+  const targetId = fileId || id || req.query.fileId || req.query.id;
+  const queryCaseId = req.query.caseId || (fileId ? id : null);
+  const decodedTargetId = targetId ? decodeURIComponent(targetId) : '';
+
+  try {
+    let targetFile = null;
+
+    // 1. Try finding case by id first if valid ObjectId
+    const searchCaseId = queryCaseId || (id && mongoose.Types.ObjectId.isValid(id) ? id : null);
+    if (searchCaseId && mongoose.Types.ObjectId.isValid(searchCaseId)) {
+      const caseDoc =
+        (await Outreach.findById(searchCaseId)) || (await SocioLegalCounselling.findById(searchCaseId));
+      if (caseDoc && caseDoc.attachedFiles) {
+        targetFile = caseDoc.attachedFiles.find(
+          (f) =>
+            (f._id && f._id.toString() === targetId) ||
+            f.publicId === targetId ||
+            f.publicId === decodedTargetId ||
+            (f.publicId && f.publicId.endsWith(targetId)) ||
+            (targetId && f.publicId && targetId.endsWith(f.publicId))
+        );
+      }
+    }
+
+    // 2. Build safe Mongoose query conditions
+    const queryConditions = [
+      { 'attachedFiles.publicId': targetId },
+      { 'attachedFiles.publicId': decodedTargetId },
+    ];
+    if (mongoose.Types.ObjectId.isValid(targetId)) {
+      queryConditions.push({ 'attachedFiles._id': targetId });
+    }
+
+    // Search Outreach
+    if (!targetFile) {
+      const orCase = await Outreach.findOne({ $or: queryConditions });
+      if (orCase && orCase.attachedFiles) {
+        targetFile = orCase.attachedFiles.find(
+          (f) =>
+            (f._id && f._id.toString() === targetId) ||
+            f.publicId === targetId ||
+            f.publicId === decodedTargetId ||
+            (f.publicId && f.publicId.endsWith(targetId)) ||
+            (targetId && f.publicId && targetId.endsWith(f.publicId))
+        );
+      }
+    }
+
+    // Search SocioLegalCounselling
+    if (!targetFile) {
+      const slcCase = await SocioLegalCounselling.findOne({ $or: queryConditions });
+      if (slcCase && slcCase.attachedFiles) {
+        targetFile = slcCase.attachedFiles.find(
+          (f) =>
+            (f._id && f._id.toString() === targetId) ||
+            f.publicId === targetId ||
+            f.publicId === decodedTargetId ||
+            (f.publicId && f.publicId.endsWith(targetId)) ||
+            (targetId && f.publicId && targetId.endsWith(f.publicId))
+        );
+      }
+    }
+
+    if (!targetFile) {
+      return res.status(404).send('Document not found');
+    }
+
+    const fileUrl = targetFile.cloudinaryUrl || targetFile.fileUrl;
+    if (!fileUrl) {
+      return res.status(404).send('Document file URL is missing');
+    }
+
+    const isPdf =
+      targetFile.fileType === 'application/pdf' ||
+      targetFile.originalName?.toLowerCase().endsWith('.pdf') ||
+      targetFile.title?.toLowerCase().endsWith('.pdf') ||
+      targetFile.section === 'Advocate' ||
+      targetFile.uploadedByRole === 'ADV' ||
+      targetFile.documentType === 'Advocate Submission' ||
+      fileUrl.toLowerCase().includes('.pdf') ||
+      fileUrl.includes('/raw/upload/');
+
+    const cleanTitle = (targetFile.title || targetFile.originalName || 'document')
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeFilename = isPdf
+      ? cleanTitle.endsWith('.pdf') ? cleanTitle : `${cleanTitle}.pdf`
+      : targetFile.originalName || `${cleanTitle}.jpg`;
+
+    const mimeType = isPdf
+      ? 'application/pdf'
+      : targetFile.fileType || 'application/octet-stream';
+
+    // Set headers for INLINE viewing in browser tab (never trigger file download)
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    // Case A: Local disk storage fallback
+    if (
+      fileUrl.includes('/uploads/documents/') ||
+      targetFile.resourceType === 'local' ||
+      targetFile.publicId?.startsWith('local_')
+    ) {
+      const subPath = fileUrl.split('/uploads/')[1] || '';
+      const localFilePath = path.join(process.cwd(), 'uploads', subPath);
+      if (fs.existsSync(localFilePath)) {
+        return fs.createReadStream(localFilePath).pipe(res);
+      }
+    }
+
+    // Case B: Remote URL (Cloudinary)
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+      const response = await fetch(fileUrl);
+      if (!response.ok) {
+        return res
+          .status(response.status)
+          .send(`Failed to fetch file from storage: ${response.statusText}`);
+      }
+
+      const arrayBuf = await response.arrayBuffer();
+      return res.send(Buffer.from(arrayBuf));
+    }
+
+    return res.status(404).send('Document source not accessible');
+  } catch (error) {
+    console.error('Error viewing document:', error);
+    return res.status(500).send('Error viewing document: ' + error.message);
+  }
+};
+

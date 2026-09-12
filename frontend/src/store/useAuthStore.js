@@ -6,13 +6,15 @@ export const useAuthStore = create(
     (set) => ({
       user: null,
       token: null,
+      advocate: null,
 
-      login: (user, token) => set({ user, token }),
-      setAuth: (user, token) => set({ user, token }),
+      login: (user, token, advocate = null) => set({ user, token, advocate }),
+      setAuth: (user, token, advocate = null) => set({ user, token, advocate }),
+      setAdvocate: (advocate) => set({ advocate }),
 
       logout: () => {
         localStorage.removeItem('token');
-        set({ user: null, token: null });
+        set({ user: null, token: null, advocate: null });
       },
     }),
     {

@@ -1,3 +1,21 @@
+/**
+ * ==============================================================================
+ * Unified Case Model (OutreachRecord)
+ * ==============================================================================
+ * Defines the comprehensive MongoDB schema that stores both initial Outreach
+ * camp records and enriched Socio-Legal Counselling (SLC) case files.
+ * 
+ * Key Schema Sub-Documents:
+ *  - Inmate Demographics (Name, Age, Gender, Education, Offence type)
+ *  - Family / Contact Person Details
+ *  - Discovery Details (Location, Camp POC, Mode of Discovery)
+ *  - Socio-Legal Evaluation (Tier, Crime Category, RLI score, Health concerns)
+ *  - Court Particulars (Court Name, Lawyer Type, Vakalatnama, Bail status)
+ *  - Follow-up Interaction Timeline Logs
+ *  - Case Document Attachments (PDF/Image file metadata from Cloudinary/Local)
+ * ==============================================================================
+ */
+
 import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
@@ -127,6 +145,9 @@ export const CALL_STATUS_OPTIONS = [
   'Invalid number',
   'Wrong number',
   'Other person pick up',
+  'Hearing Scheduled',
+  'Hearing Update',
+  'Document Submitted',
   'Other',
 ];
 
@@ -174,8 +195,8 @@ export const AttachedFileSchema = new Schema(
   {
     documentType: {
       type: String,
-      enum: [...DOCUMENTS_SUBMITTED_OPTIONS, 'Other'],
-      default: 'FIR',
+      enum: [...DOCUMENTS_SUBMITTED_OPTIONS, 'Other', 'Legal Document', 'Advocate Submission'],
+      default: 'Other',
       trim: true,
     },
     title: {
@@ -256,6 +277,20 @@ const OutreachSchema = new Schema(
           trim: true,
         },
       ],
+    },
+    familyMember: {
+      name: {
+        type: String,
+        trim: true,
+      },
+      relationshipWithInmate: {
+        type: String,
+        trim: true,
+      },
+      phoneNumber: {
+        type: String,
+        trim: true,
+      },
     },
 
     // Inmate Demographics (populated by Outreach, expanded by Socio-Legal)
@@ -416,6 +451,14 @@ const OutreachSchema = new Schema(
         type: Boolean,
         default: null,
       },
+      nextHearingDate: {
+        type: Date,
+        default: null,
+      },
+      hearingNotes: {
+        type: String,
+        trim: true,
+      },
     },
     supportNeeded: [
       {
@@ -427,6 +470,22 @@ const OutreachSchema = new Schema(
     initialCallNotes: {
       type: String,
       trim: true,
+    },
+
+    // Assigned Legal Advocate
+    assignedAdvocate: {
+      advocateId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Advocate',
+      },
+      name: { type: String, trim: true },
+      userID: { type: String, trim: true },
+      specialization: { type: String, trim: true },
+      practiceCourt: { type: String, trim: true },
+      yearsOfExperience: { type: Number },
+      casesWon: { type: Number },
+      casesTaken: { type: Number },
+      assignedAt: { type: Date, default: Date.now },
     },
 
     // Follow-up Calls & Timeline

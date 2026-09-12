@@ -125,10 +125,44 @@ export default function SlcCard({ item }) {
               {item.attachedFiles.length} {item.attachedFiles.length === 1 ? 'Doc' : 'Docs'}
             </span>
           )}
+
+          {item.assignedAdvocate?.name && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold" title={`Assigned: Adv. ${item.assignedAdvocate.name} (${item.assignedAdvocate.userID})`}>
+              <span>⚖</span>
+              <span>Adv. {item.assignedAdvocate.name}</span>
+            </span>
+          )}
+
+          {item.caseDetails?.nextHearingDate && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 px-2.5 py-0.5 text-xs font-semibold" title={`Hearing: ${new Date(item.caseDetails.nextHearingDate).toLocaleDateString('en-GB')}`}>
+              <span>📅</span>
+              <span>Hearing: {new Date(item.caseDetails.nextHearingDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+            </span>
+          )}
         </div>
 
         {/* Case Info Summary */}
         <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs space-y-1 text-gray-600 border border-gray-100">
+          {item.assignedAdvocate?.name && (
+            <div className="flex justify-between items-center text-amber-800 bg-amber-50/80 -mx-1 px-2 py-1 rounded-md border border-amber-200/60 mb-1">
+              <span className="text-amber-700 font-semibold flex items-center gap-1">
+                <span>⚖</span> Advocate:
+              </span>
+              <span className="font-bold truncate max-w-[170px]" title={`Adv. ${item.assignedAdvocate.name} (${item.assignedAdvocate.specialization || ''})`}>
+                Adv. {item.assignedAdvocate.name}
+              </span>
+            </div>
+          )}
+          {item.caseDetails?.nextHearingDate && (
+            <div className="flex justify-between items-center text-violet-800 bg-violet-50/80 -mx-1 px-2 py-1 rounded-md border border-violet-200/60 mb-1">
+              <span className="text-violet-700 font-semibold flex items-center gap-1">
+                <span>📅</span> Next Hearing:
+              </span>
+              <span className="font-bold">
+                {new Date(item.caseDetails.nextHearingDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-gray-400">Offence:</span>
             <span className="font-medium text-gray-800 truncate max-w-[170px]">

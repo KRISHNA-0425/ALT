@@ -1,5 +1,6 @@
 import bcryptjs from 'bcryptjs';
 import User, { ALLOWED_ROLES } from '../models/User.model.js';
+import Advocate from '../models/Advocate.model.js';
 import { genToken } from '../config/token.js';
 
 export const register = async (req, res) => {
@@ -114,7 +115,12 @@ export const login = async (req, res) => {
         const userRole = existingUser.roles || 'OR';
         const token = genToken(existingUser.userID, userRole);
 
-        // 6. Return token and safe user fields including roles
+        let advocate = null;
+        if (userRole === 'ADV' || existingUser.userID.toUpperCase().startsWith('ADV')) {
+            advocate = await Advocate.findOne({ userID: existingUser.userID });
+        }
+
+        // 6. Return token and safe user fields including roles and advocate details
         return res.status(200).json({
             message: 'Login successful',
             token,
@@ -124,6 +130,7 @@ export const login = async (req, res) => {
                 userID: existingUser.userID,
                 roles: userRole,
             },
+            ...(advocate ? { advocate } : {}),
         });
 
     } catch (error) {

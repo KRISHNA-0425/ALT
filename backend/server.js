@@ -1,3 +1,13 @@
+/**
+ * ==============================================================================
+ * Server Entry Point - Backend REST API
+ * ==============================================================================
+ * Initializes Express, mounts security & CORS middlewares, establishes MongoDB
+ * connection, and exposes REST endpoints for Authentication, Outreach,
+ * Socio-Legal Counselling (SLC), and Case Document Attachments.
+ * ==============================================================================
+ */
+
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -6,13 +16,13 @@ import authRouter from './routers/auth.router.js';
 import outreachRouter from './routers/outreach.route.js';
 import slcRouter from './routers/slc.route.js';
 import documentRouter from './routers/document.route.js';
-
+import advocateRouter from './routers/advocate.route.js';
 import path from 'path';
 
-// Load default .env first
+// Load default environment variables (.env)
 dotenv.config();
 
-// If NODE_ENV is production, load .env.production
+// Override with production config if running in production mode
 if (process.env.NODE_ENV === 'production') {
     dotenv.config({ path: '.env.production', override: true });
 }
@@ -51,6 +61,7 @@ app.use('/api/outreach', outreachRouter);
 app.use('/api/outreach', documentRouter);
 app.use('/api/documents', documentRouter);
 app.use('/api/slc', slcRouter);
+app.use('/api/advocates', advocateRouter);
 
 app.get('/', (_, res) => {
     res.send(`Server is running in ${NODE_ENV} mode.`);

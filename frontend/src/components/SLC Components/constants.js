@@ -90,6 +90,25 @@ export const STAGE_OF_CASE_OPTIONS = [
   'Unknown Status',
 ];
 
+export const ADVOCATE_SPECIALIZATION_OPTIONS = [
+  'POCSO',
+  'Murder',
+  'Rape',
+  'Harassment',
+  'Assault',
+  'Domestic Violence',
+  'Cyber Crime',
+  'Fraud & Cheating',
+  'Property Dispute',
+  'Narcotics',
+  'White-Collar Crime',
+  'Juvenile Justice',
+  'Constitutional Law',
+  'Family Law',
+  'Labour Dispute',
+  'Motor Accident Claims',
+];
+
 export const initialSlcFormState = {
   outreachId: null,
   slcNo: '',
@@ -110,6 +129,8 @@ export const initialSlcFormState = {
     address: '',
     monthlyIncome: '',
     isSoleBreadwinner: null,
+    offenceType: [],
+    otherOffence: '',
   },
   documentsSubmitted: [],
   tier: 'Tier 1 (High Priority)',
@@ -141,9 +162,12 @@ export const initialSlcFormState = {
     court: '',
     courtStatus: '',
     bailApplicationsFiled: null,
+    nextHearingDate: '',
+    hearingNotes: '',
   },
   supportNeeded: [],
   initialCallNotes: '',
+  assignedAdvocate: null,
   followUps: [],
   attachedFiles: [],
 };

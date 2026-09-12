@@ -46,6 +46,8 @@ export const useSlcStore = create((set, get) => ({
     notes: '',
   },
 
+  _abortController: null,
+
   // Setters
   setActiveTab: (activeTab) => set({ activeTab }),
   setSearch: (search) => set({ search }),
@@ -119,6 +121,9 @@ export const useSlcStore = create((set, get) => ({
           ...initialSlcFormState.caseDetails,
           ...record.caseDetails,
           caseSectionsInput: record.caseDetails?.caseSections?.join(', ') || '',
+          nextHearingDate: record.caseDetails?.nextHearingDate
+            ? record.caseDetails.nextHearingDate.split('T')[0]
+            : '',
         },
       },
       isEditMode: true,
@@ -190,18 +195,27 @@ export const useSlcStore = create((set, get) => ({
 
   // Async API Calls - operating on the unified case document via /api/outreach
   fetchSlcRecords: async () => {
-    set({ loading: true });
+    if (get()._abortController) {
+      get()._abortController.abort();
+    }
+    const controller = new AbortController();
+    set({ _abortController: controller, loading: true });
+
     const { search, tierFilter, crimeCategoryFilter, selectedRecord } = get();
     try {
       const params = new URLSearchParams();
-      if (search) params.append('search', search);
+      const trimmed = (search || '').trim();
+      if (trimmed) params.append('search', trimmed);
       if (tierFilter && tierFilter !== 'All') params.append('tier', tierFilter);
       if (crimeCategoryFilter && crimeCategoryFilter !== 'All') params.append('crimeCategory', crimeCategoryFilter);
 
       const queryStr = params.toString();
       const url = queryStr ? `${apiInstance}/outreach?${queryStr}` : `${apiInstance}/outreach`;
 
-      const res = await axios.get(url, getAuthHeaders());
+      const res = await axios.get(url, {
+        ...getAuthHeaders(),
+        signal: controller.signal,
+      });
       const data = res.data.data || [];
       set({ slcList: data, outreachCases: data });
 
@@ -210,9 +224,14 @@ export const useSlcStore = create((set, get) => ({
         if (fresh) set({ selectedRecord: fresh });
       }
     } catch (err) {
+      if (axios.isCancel(err) || err.name === 'CanceledError') {
+        return;
+      }
       toast.error(err.response?.data?.message || 'Failed to fetch case records');
     } finally {
-      set({ loading: false });
+      if (get()._abortController === controller) {
+        set({ loading: false, _abortController: null });
+      }
     }
   },
 

@@ -6,27 +6,13 @@ import Outreach from '../models/OutReach.model.js';
  */
 export const createOutreach = async (req, res) => {
     try {
-        const {
-            sNo,
-            dateOfFirstContact,
-            contactPerson,
-            inmate,
-            discovery,
-            followUps,
-        } = req.body;
+        const payload = { ...req.body };
 
-        if (!dateOfFirstContact) {
-            return res.status(400).json({ message: 'Date of first contact is required' });
+        if (!payload.dateOfFirstContact) {
+            payload.dateOfFirstContact = payload.dateOfContact || new Date();
         }
 
-        const newOutreach = await Outreach.create({
-            sNo,
-            dateOfFirstContact,
-            contactPerson: contactPerson || {},
-            inmate: inmate || {},
-            discovery: discovery || {},
-            followUps: followUps || [],
-        });
+        const newOutreach = await Outreach.create(payload);
 
         return res.status(201).json({
             message: 'Outreach record created successfully',
@@ -49,16 +35,38 @@ export const getAllOutreach = async (req, res) => {
 
         const selectedCategory = offenceType || category;
 
-        if (search) {
-            query.$or = [
-                { 'contactPerson.name': { $regex: search, $options: 'i' } },
-                { 'inmate.name': { $regex: search, $options: 'i' } },
-                { 'discovery.sourceOfDiscovery': { $regex: search, $options: 'i' } },
-                { 'inmate.offenceType': { $regex: search, $options: 'i' } },
-                { 'caseDetails.firNumber': { $regex: search, $options: 'i' } },
-                { 'caseDetails.policeStation': { $regex: search, $options: 'i' } },
-                { 'caseDetails.court': { $regex: search, $options: 'i' } },
+        if (search && typeof search === 'string' && search.trim()) {
+            const trimmed = search.trim();
+            const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const searchRegex = { $regex: escaped, $options: 'i' };
+
+            const searchConditions = [
+                { 'contactPerson.name': searchRegex },
+                { 'familyMember.name': searchRegex },
+                { 'inmate.name': searchRegex },
+                { 'poc': searchRegex },
+                { 'discovery.sourceOfDiscovery': searchRegex },
+                { 'inmate.offenceType': searchRegex },
+                { 'inmate.otherOffence': searchRegex },
+                { 'caseDetails.firNumber': searchRegex },
+                { 'caseDetails.policeStation': searchRegex },
+                { 'caseDetails.court': searchRegex },
+                { 'caseDetails.caseSections': searchRegex },
+                { 'prisonDetails.prisonName': searchRegex },
+                { 'contactPerson.phoneNumbers': searchRegex },
+                { 'familyMember.phoneNumber': searchRegex },
             ];
+
+            const digitsOnly = trimmed.replace(/[^0-9]/g, '');
+            if (digitsOnly.length > 0) {
+                const numericVal = Number(digitsOnly);
+                if (!isNaN(numericVal)) {
+                    searchConditions.push({ sNo: numericVal });
+                    searchConditions.push({ slcNo: numericVal });
+                }
+            }
+
+            query.$or = searchConditions;
         }
 
         if (selectedCategory && selectedCategory !== 'All') {

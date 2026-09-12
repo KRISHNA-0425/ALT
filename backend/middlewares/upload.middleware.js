@@ -65,6 +65,30 @@ export const upload = multer({
   },
 });
 
+// PDF-Only Filter for Advocate Documents
+const pdfFileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const mime = file.mimetype.toLowerCase();
+
+  if (
+    ext === '.pdf' &&
+    (mime === 'application/pdf' || mime === 'application/x-pdf' || mime === 'application/octet-stream')
+  ) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only PDF documents are allowed.'), false);
+  }
+};
+
+export const pdfUpload = multer({
+  storage,
+  fileFilter: pdfFileFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: 1,
+  },
+});
+
 /**
  * Safely delete a temporary file from disk
  * @param {string} filePath

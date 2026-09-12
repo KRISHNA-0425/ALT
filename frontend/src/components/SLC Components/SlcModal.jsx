@@ -14,6 +14,7 @@ import {
   STAGE_OF_CASE_OPTIONS,
 } from './constants';
 import DocumentManager from '../Common/DocumentManager';
+import AssignAdvocateSection from './AssignAdvocateSection';
 
 export default function SlcModal() {
   const {
@@ -41,7 +42,8 @@ export default function SlcModal() {
     { id: 'incarceration', label: '2. Documents & Priority', title: 'Documents & Priority' },
     { id: 'legal', label: '3. Legal Assessment', title: 'Legal Assessment' },
     { id: 'court', label: '4. Court & Support', title: 'Court & Support' },
-    { id: 'followups', label: `5. Follow-ups (${formData.followUps?.length || 0})`, title: `Follow-ups (${formData.followUps?.length || 0})` },
+    { id: 'advocate', label: '5. Assign an Advocate', title: 'Assign an Advocate' },
+    { id: 'followups', label: `6. Follow-ups (${formData.followUps?.length || 0})`, title: `Follow-ups (${formData.followUps?.length || 0})` },
   ];
 
   const currentTabIndex = Math.max(0, TABS.findIndex((t) => t.id === activeTab));
@@ -817,6 +819,43 @@ export default function SlcModal() {
                 </div>
               </div>
 
+              {/* Next Hearing Date & Hearing Notes (Synchronized with Advocate Updates) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 rounded-xl bg-amber-50/50 p-3.5 border border-amber-200/60">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-800 mb-1 flex items-center gap-1">
+                    <span>📅</span> Next Hearing Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.caseDetails?.nextHearingDate || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        caseDetails: { ...formData.caseDetails, nextHearingDate: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-gray-800 mb-1 flex items-center gap-1">
+                    <span>📝</span> Hearing Notes / Advocate Updates
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Bail arguments heard; reserved for order / charge framing scheduled"
+                    value={formData.caseDetails?.hearingNotes || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        caseDetails: { ...formData.caseDetails, hearingNotes: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-2">
                   Support Needed (Select all that apply)
@@ -857,7 +896,12 @@ export default function SlcModal() {
             </div>
           )}
 
-          {/* TAB 5: Follow-ups Timeline */}
+          {/* TAB 5: Assign an Advocate */}
+          {activeTab === 'advocate' && (
+            <AssignAdvocateSection formData={formData} setFormData={setFormData} />
+          )}
+
+          {/* TAB 6: Follow-ups Timeline */}
           {activeTab === 'followups' && (
             <div className="space-y-4 animate-in fade-in duration-150">
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">

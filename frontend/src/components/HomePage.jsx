@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import OutreachDashboard from './OutreachDashboard';
 import SlcDashboard from './SlcDashboard';
+import AdvocateDashboard from './AdvocateDashboard';
 
 const HomePage = () => {
   const { user, token, logout } = useAuthStore();
@@ -25,7 +26,9 @@ const HomePage = () => {
   const role = getRole();
 
   // Default portal based on role
-  const [activePortal, setActivePortal] = useState(role === 'SLC' ? 'slc' : 'outreach');
+  const [activePortal, setActivePortal] = useState(
+    role === 'ADV' ? 'advocate' : role === 'SLC' ? 'slc' : 'outreach'
+  );
 
   const handleLogout = () => {
     logout();
@@ -61,12 +64,16 @@ const HomePage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className={`h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
-              activePortal === 'slc' ? 'bg-cyan-600' : 'bg-indigo-600'
+              activePortal === 'advocate' ? 'bg-amber-600' : activePortal === 'slc' ? 'bg-cyan-600' : 'bg-indigo-600'
             }`}>
-              {activePortal === 'slc' ? 'SLC' : 'OR'}
+              {activePortal === 'advocate' ? 'ADV' : activePortal === 'slc' ? 'SLC' : 'OR'}
             </span>
             <span className="font-bold text-lg text-gray-900 tracking-tight hidden sm:inline">
-              {activePortal === 'slc' ? 'Socio-Legal Counselling Portal' : 'Project OutReach Portal'}
+              {activePortal === 'advocate'
+                ? 'Advocate Portal'
+                : activePortal === 'slc'
+                ? 'Socio-Legal Counselling Portal'
+                : 'Project OutReach Portal'}
             </span>
 
             {/* Portal Switcher for Admins / Devs */}
@@ -93,6 +100,17 @@ const HomePage = () => {
                   }`}
                 >
                   Socio-Legal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePortal('advocate')}
+                  className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                    activePortal === 'advocate'
+                      ? 'bg-white text-amber-700 shadow-xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  Advocate
                 </button>
               </div>
             )}
@@ -134,7 +152,9 @@ const HomePage = () => {
 
       {/* Main Content Area */}
       <main className="flex-1">
-        {activePortal === 'slc' && canAccessSlc ? (
+        {role === 'ADV' || activePortal === 'advocate' ? (
+          <AdvocateDashboard />
+        ) : activePortal === 'slc' && canAccessSlc ? (
           <SlcDashboard />
         ) : activePortal === 'outreach' && canAccessOutreach ? (
           <OutreachDashboard />

@@ -44,6 +44,8 @@ export const useOutreachStore = create((set, get) => ({
     callStatus: 'Call back',
   },
 
+  _abortController: null,
+
   // State setters
   setSearch: (search) => set({ search }),
   setCaseCategoryFilter: (category) => {
@@ -55,6 +57,10 @@ export const useOutreachStore = create((set, get) => ({
     get().fetchOutreach();
   },
   resetFilters: () => {
+    if (get()._searchTimeout) {
+      clearTimeout(get()._searchTimeout);
+      set({ _searchTimeout: null });
+    }
     set({ search: '', caseCategoryFilter: 'All', callStatusFilter: 'All' });
     get().fetchOutreach();
   },
@@ -157,18 +163,27 @@ export const useOutreachStore = create((set, get) => ({
 
   // Async API Calls
   fetchOutreach: async () => {
-    set({ loading: true });
+    if (get()._abortController) {
+      get()._abortController.abort();
+    }
+    const controller = new AbortController();
+    set({ _abortController: controller, loading: true });
+
     const { search, caseCategoryFilter, callStatusFilter, selectedCase } = get();
     try {
       const params = new URLSearchParams();
-      if (search) params.append('search', search);
+      const trimmed = (search || '').trim();
+      if (trimmed) params.append('search', trimmed);
       if (caseCategoryFilter && caseCategoryFilter !== 'All') params.append('category', caseCategoryFilter);
       if (callStatusFilter && callStatusFilter !== 'All') params.append('callStatus', callStatusFilter);
 
       const queryString = params.toString();
       const url = queryString ? `${apiInstance}/outreach?${queryString}` : `${apiInstance}/outreach`;
 
-      const res = await axios.get(url, getAuthHeaders());
+      const res = await axios.get(url, {
+        ...getAuthHeaders(),
+        signal: controller.signal,
+      });
       const data = res.data.data || [];
       set({ outreachList: data });
       if (selectedCase) {
@@ -176,9 +191,14 @@ export const useOutreachStore = create((set, get) => ({
         if (fresh) set({ selectedCase: fresh });
       }
     } catch (err) {
+      if (axios.isCancel(err) || err.name === 'CanceledError') {
+        return;
+      }
       toast.error(err.response?.data?.message || 'Failed to fetch outreach data');
     } finally {
-      set({ loading: false });
+      if (get()._abortController === controller) {
+        set({ loading: false, _abortController: null });
+      }
     }
   },
 

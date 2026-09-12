@@ -52,15 +52,32 @@ export const getAllSlcRecords = async (req, res) => {
     const { search, tier, crimeCategory, prisonerType } = req.query;
     let query = {};
 
-    if (search) {
-      query.$or = [
-        { 'inmate.name': { $regex: search, $options: 'i' } },
-        { 'familyMember.name': { $regex: search, $options: 'i' } },
-        { 'poc': { $regex: search, $options: 'i' } },
-        { 'caseDetails.firNumber': { $regex: search, $options: 'i' } },
-        { 'caseDetails.policeStation': { $regex: search, $options: 'i' } },
-        { 'caseDetails.court': { $regex: search, $options: 'i' } },
+    if (search && typeof search === 'string' && search.trim()) {
+      const trimmed = search.trim();
+      const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = { $regex: escaped, $options: 'i' };
+
+      const searchConditions = [
+        { 'inmate.name': searchRegex },
+        { 'familyMember.name': searchRegex },
+        { 'poc': searchRegex },
+        { 'caseDetails.firNumber': searchRegex },
+        { 'caseDetails.policeStation': searchRegex },
+        { 'caseDetails.court': searchRegex },
+        { 'caseDetails.caseSections': searchRegex },
+        { 'prisonDetails.prisonName': searchRegex },
+        { 'familyMember.phoneNumber': searchRegex },
       ];
+
+      const digitsOnly = trimmed.replace(/[^0-9]/g, '');
+      if (digitsOnly.length > 0) {
+        const numericVal = Number(digitsOnly);
+        if (!isNaN(numericVal)) {
+          searchConditions.push({ slcNo: numericVal });
+        }
+      }
+
+      query.$or = searchConditions;
     }
 
     if (tier && tier !== 'All') {

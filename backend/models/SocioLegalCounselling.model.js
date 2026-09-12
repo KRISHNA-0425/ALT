@@ -232,6 +232,14 @@ const SocioLegalCounsellingSchema = new Schema(
         type: Boolean,
         default: null,
       },
+      nextHearingDate: {
+        type: Date,
+        default: null,
+      },
+      hearingNotes: {
+        type: String,
+        trim: true,
+      },
     },
 
     // Column AN: Support Needed
@@ -247,6 +255,22 @@ const SocioLegalCounsellingSchema = new Schema(
     initialCallNotes: {
       type: String,
       trim: true,
+    },
+
+    // Assigned Legal Advocate
+    assignedAdvocate: {
+      advocateId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Advocate',
+      },
+      name: { type: String, trim: true },
+      userID: { type: String, trim: true },
+      specialization: { type: String, trim: true },
+      practiceCourt: { type: String, trim: true },
+      yearsOfExperience: { type: Number },
+      casesWon: { type: Number },
+      casesTaken: { type: Number },
+      assignedAt: { type: Date, default: Date.now },
     },
 
     // Columns AP - BF: Dynamic Follow-up Entries (1st to 4th+ Follow-ups)

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOutreachStore } from '../../store/useOutreachStore';
 import { OFFENCE_TYPE_OPTIONS, CALL_STATUS_OPTIONS } from './constants';
 
@@ -15,6 +15,59 @@ export default function FilterSection() {
     outreachList,
     loading,
   } = useOutreachStore();
+
+  const [localSearch, setLocalSearch] = useState(search);
+  const debounceTimerRef = useRef(null);
+
+  // Synchronize local input state whenever external store search is updated or reset
+  useEffect(() => {
+    setLocalSearch(search);
+  }, [search]);
+
+  // Clean up debounce timer on component unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Handle keystrokes with 500ms debounce to avoid spamming the backend API
+  const handleSearchChange = (e) => {
+    const newValue = e.target.value;
+    setLocalSearch(newValue);
+    setSearch(newValue);
+
+    // Cancel previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Schedule API call after user stops typing for 500ms
+    debounceTimerRef.current = setTimeout(() => {
+      fetchOutreach();
+    }, 500);
+  };
+
+  // Immediate fetch for Enter key press or Search button click
+  const handleSearchSubmit = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    setSearch(localSearch);
+    fetchOutreach();
+  };
+
+  // Immediate clear
+  const handleClearSearch = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    setLocalSearch('');
+    setSearch('');
+    fetchOutreach();
+  };
 
   const isFiltered =
     Boolean(search) ||
@@ -38,19 +91,21 @@ export default function FilterSection() {
               id="outreach-search"
               type="text"
               placeholder="Search by Inmate Name, Contact Name, Offence, or Source..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchOutreach()}
+              value={localSearch}
+              onChange={handleSearchChange}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSearchSubmit();
+                }
+              }}
               className="w-full rounded-xl border border-gray-300 pl-3.5 pr-20 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
             />
             <div className="absolute right-1.5 flex items-center gap-1">
-              {search && (
+              {localSearch && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setSearch('');
-                    fetchOutreach();
-                  }}
+                  onClick={handleClearSearch}
                   className="text-gray-400 hover:text-gray-600 p-1 rounded-md text-xs cursor-pointer"
                   title="Clear search"
                 >
@@ -61,7 +116,7 @@ export default function FilterSection() {
               )}
               <button
                 type="button"
-                onClick={fetchOutreach}
+                onClick={handleSearchSubmit}
                 className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 transition cursor-pointer"
               >
                 Search
@@ -172,10 +227,7 @@ export default function FilterSection() {
               <span>Query: <strong>"{search}"</strong></span>
               <button
                 type="button"
-                onClick={() => {
-                  setSearch('');
-                  fetchOutreach();
-                }}
+                onClick={handleClearSearch}
                 className="hover:text-gray-900 cursor-pointer"
                 title="Clear search query"
               >
