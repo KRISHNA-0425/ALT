@@ -17,6 +17,7 @@ import outreachRouter from './routers/outreach.route.js';
 import slcRouter from './routers/slc.route.js';
 import documentRouter from './routers/document.route.js';
 import advocateRouter from './routers/advocate.route.js';
+import notificationRouter from './routers/notification.route.js';
 import path from 'path';
 
 // Load default environment variables (.env)
@@ -62,6 +63,7 @@ app.use('/api/outreach', documentRouter);
 app.use('/api/documents', documentRouter);
 app.use('/api/slc', slcRouter);
 app.use('/api/advocates', advocateRouter);
+app.use('/api/notifications', notificationRouter);
 
 app.get('/', (_, res) => {
     res.send(`Server is running in ${NODE_ENV} mode.`);

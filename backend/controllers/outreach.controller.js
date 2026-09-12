@@ -1,4 +1,9 @@
 import Outreach from '../models/OutReach.model.js';
+import Notification from '../models/Notification.model.js';
+import {
+  sendNewOutreachCaseNotification,
+  sendAdvocateAssignmentNotification,
+} from '../services/email.service.js';
 
 /**
  * @desc Create new Outreach record
@@ -13,6 +18,28 @@ export const createOutreach = async (req, res) => {
         }
 
         const newOutreach = await Outreach.create(payload);
+
+        // Asynchronously record In-App notification for SLC team & dispatch offline email
+        (async () => {
+            try {
+                const caseIdentifier = newOutreach.slcNo ? `SLC #${newOutreach.slcNo}` : `Case #${newOutreach.sNo || newOutreach._id.toString().slice(-6)}`;
+                const inmateName = newOutreach.inmate?.name || 'Inmate';
+
+                await Notification.create({
+                    recipientRole: 'SLC',
+                    title: `New Case: ${inmateName}`,
+                    message: `A new inmate file (${caseIdentifier}) was registered by Outreach and is awaiting Socio-Legal assessment.`,
+                    type: 'NEW_OUTREACH_CASE',
+                    caseId: newOutreach._id,
+                    caseNumber: caseIdentifier,
+                    inmateName: inmateName,
+                });
+
+                await sendNewOutreachCaseNotification(newOutreach);
+            } catch (notifyErr) {
+                console.warn('Background notification error on case creation:', notifyErr.message);
+            }
+        })();
 
         return res.status(201).json({
             message: 'Outreach record created successfully',
@@ -140,6 +167,9 @@ export const updateOutreach = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
 
+        const existingRecord = await Outreach.findById(id).select('assignedAdvocate inmate slcNo sNo');
+        const prevAdvocateId = existingRecord?.assignedAdvocate?.userID || existingRecord?.assignedAdvocate?.advocateId?.toString();
+
         const updatedOutreach = await Outreach.findByIdAndUpdate(
             id,
             { $set: updateData },
@@ -148,6 +178,38 @@ export const updateOutreach = async (req, res) => {
 
         if (!updatedOutreach) {
             return res.status(404).json({ message: 'Outreach record not found' });
+        }
+
+        // Detect if an advocate was newly assigned or changed
+        const newAdvocate = updatedOutreach.assignedAdvocate;
+        const newAdvocateId = newAdvocate?.userID || newAdvocate?.advocateId?.toString();
+
+        if (newAdvocate && newAdvocateId && newAdvocateId !== prevAdvocateId) {
+            (async () => {
+                try {
+                    const caseIdentifier = updatedOutreach.slcNo ? `SLC #${updatedOutreach.slcNo}` : `Case #${updatedOutreach.sNo || updatedOutreach._id.toString().slice(-6)}`;
+                    const inmateName = updatedOutreach.inmate?.name || 'Inmate';
+
+                    await Notification.create({
+                        recipientRole: 'ADV',
+                        recipientId: newAdvocate.userID ? newAdvocate.userID.trim().toUpperCase() : undefined,
+                        title: `New Case Assigned: ${inmateName}`,
+                        message: `You have been assigned to provide legal aid/representation for ${inmateName} (${caseIdentifier}).`,
+                        type: 'ADVOCATE_ASSIGNED',
+                        caseId: updatedOutreach._id,
+                        caseNumber: caseIdentifier,
+                        inmateName: inmateName,
+                        metadata: {
+                            advocateName: newAdvocate.name,
+                            advocateUserID: newAdvocate.userID,
+                        },
+                    });
+
+                    await sendAdvocateAssignmentNotification(updatedOutreach, newAdvocate);
+                } catch (notifyErr) {
+                    console.warn('Background notification error on advocate assignment:', notifyErr.message);
+                }
+            })();
         }
 
         return res.status(200).json({

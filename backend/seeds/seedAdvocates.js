@@ -83,16 +83,19 @@ export const seedAllAdvocates = async () => {
       // Generate 5-digit number starting at 10001
       const numericPart = 10001 + index;
       const userID = `ADV${numericPart}`;
+      const email = `adv.${item.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@delhibar.org`;
 
       advocateDocs.push({
         ...item,
         userID,
+        email,
         state: 'Delhi',
       });
 
       userDocs.push({
         userName: item.name,
         userID,
+        email,
         password: defaultPasswordHash,
         roles: 'ADV',
       });

@@ -1,5 +1,7 @@
 import SocioLegalCounselling from '../models/SocioLegalCounselling.model.js';
 import Outreach from '../models/OutReach.model.js';
+import Notification from '../models/Notification.model.js';
+import { sendAdvocateAssignmentNotification } from '../services/email.service.js';
 
 /**
  * @desc Create a new Socio-Legal Counselling record
@@ -160,6 +162,9 @@ export const getSlcByOutreachId = async (req, res) => {
 export const updateSlcRecord = async (req, res) => {
   try {
     const { id } = req.params;
+    const existingRecord = await SocioLegalCounselling.findById(id).select('assignedAdvocate inmate slcNo');
+    const prevAdvocateId = existingRecord?.assignedAdvocate?.userID || existingRecord?.assignedAdvocate?.advocateId?.toString();
+
     const updated = await SocioLegalCounselling.findByIdAndUpdate(
       id,
       { $set: req.body },
@@ -168,6 +173,38 @@ export const updateSlcRecord = async (req, res) => {
 
     if (!updated) {
       return res.status(404).json({ message: 'SLC record not found' });
+    }
+
+    // Detect if an advocate was newly assigned or changed
+    const newAdvocate = updated.assignedAdvocate;
+    const newAdvocateId = newAdvocate?.userID || newAdvocate?.advocateId?.toString();
+
+    if (newAdvocate && newAdvocateId && newAdvocateId !== prevAdvocateId) {
+      (async () => {
+        try {
+          const caseIdentifier = updated.slcNo ? `SLC #${updated.slcNo}` : `Case #${updated._id.toString().slice(-6)}`;
+          const inmateName = updated.inmate?.name || 'Inmate';
+
+          await Notification.create({
+            recipientRole: 'ADV',
+            recipientId: newAdvocate.userID ? newAdvocate.userID.trim().toUpperCase() : undefined,
+            title: `New Case Assigned: ${inmateName}`,
+            message: `You have been assigned to provide legal representation for ${inmateName} (${caseIdentifier}).`,
+            type: 'ADVOCATE_ASSIGNED',
+            caseId: updated._id,
+            caseNumber: caseIdentifier,
+            inmateName: inmateName,
+            metadata: {
+              advocateName: newAdvocate.name,
+              advocateUserID: newAdvocate.userID,
+            },
+          });
+
+          await sendAdvocateAssignmentNotification(updated, newAdvocate);
+        } catch (notifyErr) {
+          console.warn('Background notification error on advocate assignment in SLC:', notifyErr.message);
+        }
+      })();
     }
 
     return res.status(200).json({

@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import OutreachDashboard from './OutreachDashboard';
 import SlcDashboard from './SlcDashboard';
 import AdvocateDashboard from './AdvocateDashboard';
+import NotificationBell from './Common/NotificationBell';
 
 const HomePage = () => {
   const { user, token, logout } = useAuthStore();
@@ -116,7 +117,10 @@ const HomePage = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Real-time In-App Notification Center & Toasts */}
+            <NotificationBell />
+
             <div className="flex items-center gap-3 text-sm text-gray-600">
               <div className="h-9 w-9 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold flex items-center justify-center text-sm shadow-xs">
                 {(user?.userName || user?.userID || 'U').charAt(0).toUpperCase()}

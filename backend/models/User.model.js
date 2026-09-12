@@ -24,7 +24,12 @@ const userSchema = new mongoose.Schema({
         enum: ALLOWED_ROLES,
         default: "OR",
         required: true,
-    }
+    },
+    email: {
+        type: String,
+        trim: true,
+        lowercase: true,
+    },
 },
     { timestamps: true }
 );

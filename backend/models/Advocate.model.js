@@ -75,6 +75,12 @@ const advocateSchema = new mongoose.Schema(
       default: "Delhi",
       immutable: true,
     },
+
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
   },
   {
     timestamps: true,
