@@ -3,7 +3,7 @@ import fs from 'fs';
 import mongoose from 'mongoose';
 import Outreach, { DOCUMENTS_SUBMITTED_OPTIONS } from '../models/OutReach.model.js';
 import SocioLegalCounselling from '../models/SocioLegalCounselling.model.js';
-import { uploadLargeFile, deleteFromCloudinary, isCloudinaryConfigured } from '../config/cloudinary.js';
+import cloudinary, { uploadLargeFile, deleteFromCloudinary, isCloudinaryConfigured, ensureCloudinaryConfigured } from '../config/cloudinary.js';
 import { removeLocalFile } from '../middlewares/upload.middleware.js';
 
 /**
@@ -406,10 +406,46 @@ export const viewCaseDocument = async (req, res) => {
     if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
       const secureFileUrl = fileUrl.replace(/^http:\/\/alt-1-4alx\.onrender\.com/, 'https://alt-1-4alx.onrender.com');
 
+      // 1. For Cloudinary PDF documents, use authenticated private_download_url to fetch complete multi-page original PDF
+      if (isPdf && targetFile.publicId && isCloudinaryConfigured()) {
+        try {
+          ensureCloudinaryConfigured();
+          const cleanPubId = targetFile.publicId.replace(/\.pdf$/i, '');
+          const resType = targetFile.resourceType === 'raw' ? 'raw' : 'image';
+          const signedDownloadUrl = cloudinary.utils.private_download_url(
+            cleanPubId,
+            resType === 'raw' ? '' : 'pdf',
+            {
+              resource_type: resType,
+              type: 'upload',
+              attachment: false,
+            }
+          );
+
+          const dlResp = await fetch(signedDownloadUrl);
+          if (dlResp.ok) {
+            const arrayBuf = await dlResp.arrayBuffer();
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+            return res.send(Buffer.from(arrayBuf));
+          }
+        } catch (signedErr) {
+          console.warn('Authenticated Cloudinary multi-page PDF download error:', signedErr.message);
+        }
+      }
+
+      // 2. Direct fetch fallback
       try {
         let response = await fetch(secureFileUrl);
 
-        // If Cloudinary blocked PDF direct delivery with 401 ACL error, try rendered image representation
+        if (response.ok) {
+          const arrayBuf = await response.arrayBuffer();
+          res.setHeader('Content-Type', mimeType);
+          res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+          return res.send(Buffer.from(arrayBuf));
+        }
+
+        // 3. Fallback: If direct fetch failed with 401 ACL error, try rendered image
         if (!response.ok && response.status === 401 && secureFileUrl.includes('cloudinary.com')) {
           const pngUrl = secureFileUrl.replace(/\.pdf(\?|$)/i, '.png$1');
           const pngResp = await fetch(pngUrl);
@@ -419,24 +455,8 @@ export const viewCaseDocument = async (req, res) => {
             res.setHeader('Content-Disposition', `inline; filename="${cleanTitle}.png"`);
             return res.send(Buffer.from(arrayBuf));
           }
-
-          const strippedUrl = secureFileUrl.replace(/\.pdf(\?|$)/i, '$1');
-          if (strippedUrl !== secureFileUrl) {
-            const retryResp = await fetch(strippedUrl);
-            if (retryResp.ok) {
-              response = retryResp;
-            }
-          }
         }
 
-        if (response.ok) {
-          const arrayBuf = await response.arrayBuffer();
-          res.setHeader('Content-Type', mimeType);
-          res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
-          return res.send(Buffer.from(arrayBuf));
-        }
-
-        // Fallback: If streaming proxy fails, redirect to direct URL
         return res.redirect(secureFileUrl);
       } catch (fetchErr) {
         console.warn('Proxy fetch failed, redirecting to direct URL:', fetchErr.message);
