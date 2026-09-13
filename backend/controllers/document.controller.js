@@ -30,7 +30,8 @@ export const uploadCaseDocument = async (req, res) => {
     const documentType = req.body.documentType || 'FIR';
     const title = req.body.title || file.originalname;
     const isImage = file.mimetype.startsWith('image/');
-    const resourceType = isImage ? 'image' : 'raw';
+    const isPdf = file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf');
+    const resourceType = (isImage || isPdf) ? 'image' : 'auto';
 
     let uploadResult = null;
     let isLocalFallback = false;
@@ -41,6 +42,7 @@ export const uploadCaseDocument = async (req, res) => {
         const folderName = `socio_legal_documents/${caseDoc.slcNo || caseDoc.sNo || id}`;
         uploadResult = await uploadLargeFile(localFilePath, {
           resource_type: resourceType,
+          format: isPdf ? 'pdf' : undefined,
           folder: folderName,
           public_id: `${documentType.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}`,
         });
@@ -407,8 +409,17 @@ export const viewCaseDocument = async (req, res) => {
       try {
         let response = await fetch(secureFileUrl);
 
-        // If Cloudinary blocked raw PDF direct delivery with 401 ACL error, try alternate formats
+        // If Cloudinary blocked PDF direct delivery with 401 ACL error, try rendered image representation
         if (!response.ok && response.status === 401 && secureFileUrl.includes('cloudinary.com')) {
+          const pngUrl = secureFileUrl.replace(/\.pdf(\?|$)/i, '.png$1');
+          const pngResp = await fetch(pngUrl);
+          if (pngResp.ok) {
+            const arrayBuf = await pngResp.arrayBuffer();
+            res.setHeader('Content-Type', 'image/png');
+            res.setHeader('Content-Disposition', `inline; filename="${cleanTitle}.png"`);
+            return res.send(Buffer.from(arrayBuf));
+          }
+
           const strippedUrl = secureFileUrl.replace(/\.pdf(\?|$)/i, '$1');
           if (strippedUrl !== secureFileUrl) {
             const retryResp = await fetch(strippedUrl);

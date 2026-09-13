@@ -593,7 +593,8 @@ export const addAdvocateCaseFields = async (req, res) => {
         try {
           const folderName = `advocate_documents/${caseDoc.slcNo || caseDoc.sNo || id}`;
           uploadResult = await uploadLargeFile(localFilePath, {
-            resource_type: 'raw',
+            resource_type: 'image',
+            format: 'pdf',
             folder: folderName,
             public_id: `adv_doc_${Date.now()}`,
           });
@@ -638,7 +639,7 @@ export const addAdvocateCaseFields = async (req, res) => {
         fileUrl: uploadResult.secure_url || uploadResult.url,
         publicId: uploadResult.public_id,
         fileType: 'application/pdf',
-        resourceType: 'raw',
+        resourceType: uploadResult.resource_type || 'image',
         fileSize: uploadResult.bytes || file.size,
         uploadedBy: req.user?._id,
         uploadedByRole: 'ADV',

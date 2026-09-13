@@ -167,20 +167,19 @@ export default function AdvocateDashboard() {
   const getDocumentViewUrl = (doc, caseItem) => {
     if (!doc) return '#';
 
-    // 1. If direct Cloudinary CDN URL, open directly in new tab
-    if (doc.fileUrl && (doc.fileUrl.startsWith('https://res.cloudinary.com/') || doc.fileUrl.startsWith('http://res.cloudinary.com/'))) {
-      return doc.fileUrl.replace('http://', 'https://');
-    }
-
     const caseId = caseItem?._id || doc.caseId;
     const fileId = doc._id || doc.publicId;
 
-    // 2. Use live backend proxy route with apiInstance
+    // Use live backend proxy route with apiInstance for inline streaming & format handling
     if (caseId && fileId) {
       return `${apiInstance}/documents/view/${caseId}/${encodeURIComponent(fileId)}`;
     }
     if (fileId) {
       return `${apiInstance}/documents/view/${encodeURIComponent(fileId)}`;
+    }
+
+    if (doc.fileUrl && (doc.fileUrl.startsWith('https://res.cloudinary.com/') || doc.fileUrl.startsWith('http://res.cloudinary.com/'))) {
+      return doc.fileUrl.replace('http://', 'https://');
     }
 
     return doc.fileUrl ? doc.fileUrl.replace(/^http:\/\/alt-1-4alx\.onrender\.com/, 'https://alt-1-4alx.onrender.com') : '#';
