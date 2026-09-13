@@ -181,6 +181,17 @@ export default function SlcCard({ item }) {
             <span className="text-gray-400">POC:</span>
             <span className="font-medium text-gray-800">{item.poc || 'Unassigned'}</span>
           </div>
+          {(item.durationInCustodyDays !== undefined && item.durationInCustodyDays !== null) ? (
+            <div className="flex justify-between">
+              <span className="text-gray-400">Custody:</span>
+              <span className="font-medium text-gray-800">{item.durationInCustodyDays} days</span>
+            </div>
+          ) : (item.durationInCustodyMonths !== undefined && item.durationInCustodyMonths !== null) ? (
+            <div className="flex justify-between">
+              <span className="text-gray-400">Custody:</span>
+              <span className="font-medium text-gray-800">{item.durationInCustodyMonths * 30} days</span>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -1136,6 +1136,16 @@ export default function AdvocateDashboard() {
                   <span className="text-gray-400">Past Case History:</span>
                   <p className="font-semibold text-gray-800">{selectedCaseForDetails.inmate?.pastCaseHistory || 'No'}</p>
                 </div>
+                <div>
+                  <span className="text-gray-400">Duration in Custody:</span>
+                  <p className="font-semibold text-gray-800">
+                    {selectedCaseForDetails.durationInCustodyDays !== undefined && selectedCaseForDetails.durationInCustodyDays !== null
+                      ? `${selectedCaseForDetails.durationInCustodyDays} days`
+                      : selectedCaseForDetails.durationInCustodyMonths !== undefined && selectedCaseForDetails.durationInCustodyMonths !== null
+                      ? `${selectedCaseForDetails.durationInCustodyMonths * 30} days (${selectedCaseForDetails.durationInCustodyMonths} mos)`
+                      : '0 days'}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1190,6 +1200,25 @@ export default function AdvocateDashboard() {
                 <div>
                   <span className="text-gray-400">Prisoner Type:</span>
                   <p className="font-semibold text-gray-800">{selectedCaseForDetails.prisonDetails?.prisonerType || 'N/A'}</p>
+                </div>
+                <div className="sm:col-span-2 rounded-xl bg-violet-50/80 p-2.5 border border-violet-200">
+                  <span className="text-violet-700 font-bold flex items-center gap-1">
+                    <span>📅</span> Next Date of Hearing:
+                  </span>
+                  <p className="text-sm font-bold text-violet-950 mt-0.5">
+                    {selectedCaseForDetails.caseDetails?.nextHearingDate
+                      ? new Date(selectedCaseForDetails.caseDetails.nextHearingDate).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })
+                      : 'Not Scheduled Yet (Can be updated via "+ Add Fields")'}
+                  </p>
+                  {selectedCaseForDetails.caseDetails?.hearingNotes && (
+                    <p className="text-xs text-violet-800 mt-1">
+                      <strong>Hearing Notes:</strong> {selectedCaseForDetails.caseDetails.hearingNotes}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

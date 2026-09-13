@@ -202,8 +202,21 @@ export const updateOutreach = async (req, res) => {
         if (updateData.dateOfArrest === '') delete updateData.dateOfArrest;
         if (updateData.dateOfContact === '') delete updateData.dateOfContact;
         if (updateData.dateOfFirstContact === '') delete updateData.dateOfFirstContact;
+        if (updateData.durationInCustodyDays === '') delete updateData.durationInCustodyDays;
+        if (updateData.durationInCustodyDays !== undefined && updateData.durationInCustodyDays !== null) {
+            updateData.durationInCustodyDays = Math.max(0, Number(updateData.durationInCustodyDays));
+            updateData.durationInCustodyMonths = Math.round(updateData.durationInCustodyDays / 30);
+        }
         if (updateData.durationInCustodyMonths === '') delete updateData.durationInCustodyMonths;
-        if (updateData.caseDetails) {
+
+        // Preserve existing advocate-managed hearing date and notes if not explicitly provided
+        if (existingOutreach?.caseDetails && updateData.caseDetails) {
+            if (!updateData.caseDetails.nextHearingDate && existingOutreach.caseDetails.nextHearingDate) {
+                updateData.caseDetails.nextHearingDate = existingOutreach.caseDetails.nextHearingDate;
+            }
+            if (!updateData.caseDetails.hearingNotes && existingOutreach.caseDetails.hearingNotes) {
+                updateData.caseDetails.hearingNotes = existingOutreach.caseDetails.hearingNotes;
+            }
             if (updateData.caseDetails.nextHearingDate === '') delete updateData.caseDetails.nextHearingDate;
             if (updateData.caseDetails.bailApplicationsFiled === '') delete updateData.caseDetails.bailApplicationsFiled;
         }

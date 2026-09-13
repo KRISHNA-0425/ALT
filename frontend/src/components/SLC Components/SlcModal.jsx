@@ -482,20 +482,38 @@ export default function SlcModal() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Duration in Custody (Months)</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Duration in Custody (Days)</label>
                   <input
                     type="number"
                     min="0"
-                    placeholder="e.g. 6"
-                    value={formData.durationInCustodyMonths || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        durationInCustodyMonths: e.target.value ? Number(e.target.value) : '',
-                      })
+                    placeholder="0 (e.g. 0, 15, 90)"
+                    value={
+                      formData.durationInCustodyDays !== undefined && formData.durationInCustodyDays !== null
+                        ? formData.durationInCustodyDays
+                        : formData.durationInCustodyMonths
+                        ? formData.durationInCustodyMonths * 30
+                        : ''
                     }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setFormData({
+                          ...formData,
+                          durationInCustodyDays: '',
+                          durationInCustodyMonths: '',
+                        });
+                      } else {
+                        const days = Math.max(0, parseInt(val, 10) || 0);
+                        setFormData({
+                          ...formData,
+                          durationInCustodyDays: days,
+                          durationInCustodyMonths: Math.round(days / 30),
+                        });
+                      }
+                    }}
                     className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                   />
+                  <p className="text-[10px] text-gray-400 mt-0.5">0 day minimum; negative values not permitted.</p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Prison Name</label>
@@ -819,42 +837,34 @@ export default function SlcModal() {
                 </div>
               </div>
 
-              {/* Next Hearing Date & Hearing Notes (Synchronized with Advocate Updates) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 rounded-xl bg-amber-50/50 p-3.5 border border-amber-200/60">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-800 mb-1 flex items-center gap-1">
-                    <span>📅</span> Next Hearing Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.caseDetails?.nextHearingDate || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        caseDetails: { ...formData.caseDetails, nextHearingDate: e.target.value },
-                      })
-                    }
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                  />
+              {/* Hearing Information Notice (Managed exclusively via Advocate Portal) */}
+              {formData.caseDetails?.nextHearingDate ? (
+                <div className="rounded-xl bg-violet-50/70 p-3.5 border border-violet-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-start sm:items-center gap-2.5">
+                    <span className="text-xl">📅</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-violet-950">Next Hearing Date:</span>
+                        <span className="rounded-md bg-violet-200/80 px-2 py-0.5 text-xs font-bold text-violet-900 font-mono">
+                          {new Date(formData.caseDetails.nextHearingDate).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                      {formData.caseDetails?.hearingNotes && (
+                        <p className="text-xs text-violet-800 mt-1">
+                          <strong>Advocate Notes:</strong> {formData.caseDetails.hearingNotes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-semibold text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full border border-violet-300 self-start sm:self-auto">
+                    ✓ Managed in Advocate Portal
+                  </span>
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-800 mb-1 flex items-center gap-1">
-                    <span>📝</span> Hearing Notes / Advocate Updates
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Bail arguments heard; reserved for order / charge framing scheduled"
-                    value={formData.caseDetails?.hearingNotes || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        caseDetails: { ...formData.caseDetails, hearingNotes: e.target.value },
-                      })
-                    }
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                  />
-                </div>
-              </div>
+              ) : null}
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-2">

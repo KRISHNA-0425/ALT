@@ -164,6 +164,10 @@ const SocioLegalCounsellingSchema = new Schema(
     dateOfArrest: {
       type: Date,
     },
+    durationInCustodyDays: {
+      type: Number,
+      min: 0,
+    },
     durationInCustodyMonths: {
       type: Number,
       min: 0,

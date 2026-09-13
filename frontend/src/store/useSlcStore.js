@@ -95,6 +95,12 @@ export const useSlcStore = create((set, get) => ({
           ? record.dateOfFirstContact.split('T')[0]
           : new Date().toISOString().split('T')[0],
         dateOfArrest: record.dateOfArrest ? record.dateOfArrest.split('T')[0] : '',
+        durationInCustodyDays:
+          record.durationInCustodyDays !== undefined && record.durationInCustodyDays !== null
+            ? record.durationInCustodyDays
+            : record.durationInCustodyMonths
+            ? record.durationInCustodyMonths * 30
+            : '',
         poc: record.poc || record.discovery?.sourceOfDiscovery || '',
         modeOfDiscovery: record.modeOfDiscovery || record.discovery?.mode || 'Outside Prison',
         familyMember: {

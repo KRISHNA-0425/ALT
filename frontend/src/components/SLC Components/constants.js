@@ -135,6 +135,7 @@ export const initialSlcFormState = {
   documentsSubmitted: [],
   tier: 'Tier 1 (High Priority)',
   dateOfArrest: '',
+  durationInCustodyDays: '',
   durationInCustodyMonths: '',
   prisonDetails: {
     prisonName: '',

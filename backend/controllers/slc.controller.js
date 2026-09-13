@@ -193,8 +193,21 @@ export const updateSlcRecord = async (req, res) => {
     // Clean empty strings on date and numeric fields
     if (updateData.dateOfArrest === '') delete updateData.dateOfArrest;
     if (updateData.dateOfContact === '') delete updateData.dateOfContact;
+    if (updateData.durationInCustodyDays === '') delete updateData.durationInCustodyDays;
+    if (updateData.durationInCustodyDays !== undefined && updateData.durationInCustodyDays !== null) {
+      updateData.durationInCustodyDays = Math.max(0, Number(updateData.durationInCustodyDays));
+      updateData.durationInCustodyMonths = Math.round(updateData.durationInCustodyDays / 30);
+    }
     if (updateData.durationInCustodyMonths === '') delete updateData.durationInCustodyMonths;
-    if (updateData.caseDetails) {
+
+    // Preserve existing advocate-managed hearing date and notes if not explicitly provided
+    if (existingRecord?.caseDetails && updateData.caseDetails) {
+      if (!updateData.caseDetails.nextHearingDate && existingRecord.caseDetails.nextHearingDate) {
+        updateData.caseDetails.nextHearingDate = existingRecord.caseDetails.nextHearingDate;
+      }
+      if (!updateData.caseDetails.hearingNotes && existingRecord.caseDetails.hearingNotes) {
+        updateData.caseDetails.hearingNotes = existingRecord.caseDetails.hearingNotes;
+      }
       if (updateData.caseDetails.nextHearingDate === '') delete updateData.caseDetails.nextHearingDate;
       if (updateData.caseDetails.bailApplicationsFiled === '') delete updateData.caseDetails.bailApplicationsFiled;
     }
