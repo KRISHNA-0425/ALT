@@ -276,6 +276,36 @@ const SocioLegalCounsellingSchema = new Schema(
 
     // Columns AP - BF: Dynamic Follow-up Entries (1st to 4th+ Follow-ups)
     followUps: [FollowUpSchema],
+
+    // Admin Flagging System
+    adminFlag: {
+      isFlagged: {
+        type: Boolean,
+        default: false,
+        index: true,
+      },
+      flagReason: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      flaggedBy: {
+        type: String,
+        trim: true,
+      },
+      flaggedByName: {
+        type: String,
+        trim: true,
+      },
+      flaggedAt: {
+        type: Date,
+      },
+      status: {
+        type: String,
+        enum: ['Open', 'Under Review', 'Resolved'],
+        default: 'Open',
+      },
+    },
   },
   {
     timestamps: true,
