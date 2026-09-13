@@ -18,6 +18,11 @@ export const createOutreach = async (req, res) => {
             payload.dateOfFirstContact = payload.dateOfContact || new Date();
         }
 
+        if (!payload.sNo) {
+            const lastOutreach = await Outreach.findOne({ sNo: { $ne: null } }).sort({ sNo: -1 }).select('sNo');
+            payload.sNo = (lastOutreach && typeof lastOutreach.sNo === 'number') ? lastOutreach.sNo + 1 : 1;
+        }
+
         const newOutreach = await Outreach.create(payload);
 
         // Asynchronously record In-App notification for SLC team & dispatch offline email

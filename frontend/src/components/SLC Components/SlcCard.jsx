@@ -117,6 +117,15 @@ export default function SlcCard({ item }) {
             </span>
           )}
 
+          {item.adminFlag?.isFlagged && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-800 border border-red-200 px-2.5 py-0.5 text-xs font-bold"
+              title={`Flagged by Admin: ${item.adminFlag.flagReason || 'Requires review'}`}
+            >
+              <span>🚩</span> Flagged
+            </span>
+          )}
+
           {item.attachedFiles?.length > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 text-xs font-semibold" title={`${item.attachedFiles.length} document(s) uploaded`}>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

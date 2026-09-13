@@ -26,11 +26,21 @@ export default function OutreachCard({ item, onSelect }) {
                 })
               : 'No date'}
           </span>
-          {item.sNo !== undefined && item.sNo !== null && (
-            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-bold text-gray-600">
-              #{item.sNo}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {item.adminFlag?.isFlagged && (
+              <span
+                className="rounded-full bg-red-100 text-red-800 px-2 py-0.5 text-[10px] font-bold border border-red-200 flex items-center gap-1"
+                title={`Flagged by Admin: ${item.adminFlag.flagReason || 'Requires review'}`}
+              >
+                <span>🚩</span> Flagged
+              </span>
+            )}
+            {item.sNo !== undefined && item.sNo !== null && (
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-bold text-gray-600">
+                #{item.sNo}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Inmate Name */}

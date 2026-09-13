@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { apiInstance } from '../App';
 import { useAuthStore } from '../store/useAuthStore';
 import { useOutreachStore } from '../store/useOutreachStore';
 
@@ -50,11 +52,62 @@ export default function OutreachDashboard() {
     handleFollowUpSubmit,
   } = useOutreachStore();
 
+  const [targetsData, setTargetsData] = useState(null);
+  const [loadingTargets, setLoadingTargets] = useState(false);
+
   useEffect(() => {
     if (token) {
       fetchOutreach();
+      fetchTargets();
     }
   }, [token]);
+
+  const fetchTargets = async () => {
+    if (!token) return;
+    try {
+      setLoadingTargets(true);
+      const res = await axios.get(`${apiInstance}/admin/targets`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTargetsData(res.data);
+    } catch (err) {
+      console.warn('Could not fetch outreach targets:', err.message);
+    } finally {
+      setLoadingTargets(false);
+    }
+  };
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Robustly extract total target assigned by admin as SL number
+  const totalTargetValue = Number(
+    targetsData?.targets?.total?.targetCount ||
+    targetsData?.targets?.total?.target ||
+    targetsData?.totalTarget ||
+    (Array.isArray(targetsData?.data) ? targetsData.data.find((t) => t.targetType === 'TOTAL')?.targetCount : null) ||
+    1000
+  );
+
+  // Robustly extract today's target assigned by admin
+  const dailyTargetValue = Number(
+    targetsData?.targets?.daily?.targetCount ||
+    targetsData?.targets?.daily?.target ||
+    targetsData?.dailyTarget ||
+    (Array.isArray(targetsData?.data) ? targetsData.data.find((t) => t.targetType === 'DAILY')?.targetCount : null) ||
+    10
+  );
+
+  // Calculate current maximum sNo in outreachList
+  const currentMaxSno = outreachList.reduce((max, item) => Math.max(max, item.sNo || 0), 0) || outreachList.length;
+
+  // Tickets created today
+  const ticketsCreatedToday = outreachList.filter((item) => {
+    if (!item.createdAt) return false;
+    return new Date(item.createdAt).toISOString().split('T')[0] === todayStr;
+  }).length;
+
+  const totalProgressPct = totalTargetValue > 0 ? Math.min(100, parseFloat(((currentMaxSno / totalTargetValue) * 100).toFixed(1))) : 0;
+  const dailyProgressPct = dailyTargetValue > 0 ? Math.min(100, Math.round((ticketsCreatedToday / dailyTargetValue) * 100)) : 0;
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -73,15 +126,118 @@ export default function OutreachDashboard() {
             Click on any case card to view its comprehensive profile and follow-up timeline
           </p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition cursor-pointer"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Add OutReach Record
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={fetchTargets}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer shadow-xs"
+            title="Refresh Admin Targets"
+          >
+            <span>🔄</span> Refresh Targets
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition cursor-pointer"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Add OutReach Record
+          </button>
+        </div>
+      </div>
+
+      {/* Target Progress Cards (Assigned by Admin as SL Number) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
+        {/* Total Target / SL Progress */}
+        <div className="bg-white rounded-2xl border border-indigo-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
+                <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-950">
+                  Total Target (Assigned by Admin as SL Number)
+                </span>
+              </div>
+              <span className="text-xs font-extrabold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                {totalProgressPct}% Goal Reached
+              </span>
+            </div>
+
+            <div className="flex items-baseline justify-between pt-1">
+              <div>
+                <span className="text-3xl font-black text-gray-900 tracking-tight">
+                  SL #{currentMaxSno}
+                </span>
+                <span className="text-base font-bold text-indigo-700 ml-2">
+                  / Target: SL #{totalTargetValue}
+                </span>
+              </div>
+              <span className="text-xs text-gray-600 font-semibold bg-gray-50 px-2 py-1 rounded-md border border-gray-200/60">
+                {totalTargetValue > currentMaxSno
+                  ? `${totalTargetValue - currentMaxSno} tickets left to SL #${totalTargetValue}`
+                  : '🎉 SL Goal Achieved!'}
+              </span>
+            </div>
+
+            <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(2, totalProgressPct)}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="pt-3 mt-3 border-t border-indigo-50 flex items-center justify-between text-[11px] text-gray-500 font-medium">
+            <span>Admin Directive: Benchmarked to Serial Number (SL)</span>
+            <span className="font-mono text-indigo-900 font-bold">Goal: SL #{totalTargetValue}</span>
+          </div>
+        </div>
+
+        {/* Daily Ticket Target Progress */}
+        <div className="bg-white rounded-2xl border border-amber-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                <span className="text-xs font-extrabold uppercase tracking-wider text-amber-950">
+                  Today's Target (Assigned by Admin)
+                </span>
+              </div>
+              <span className="text-xs font-extrabold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                {dailyProgressPct}% Quota
+              </span>
+            </div>
+
+            <div className="flex items-baseline justify-between pt-1">
+              <div>
+                <span className="text-3xl font-black text-gray-900 tracking-tight">
+                  {ticketsCreatedToday}
+                </span>
+                <span className="text-base font-bold text-amber-700 ml-2">
+                  / Target: {dailyTargetValue} tickets
+                </span>
+              </div>
+              <span className="text-xs text-gray-600 font-semibold bg-gray-50 px-2 py-1 rounded-md border border-gray-200/60">
+                {dailyTargetValue > ticketsCreatedToday
+                  ? `${dailyTargetValue - ticketsCreatedToday} more tickets today`
+                  : '🎯 Today\'s Quota Met!'}
+              </span>
+            </div>
+
+            <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(2, dailyProgressPct)}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="pt-3 mt-3 border-t border-amber-50 flex items-center justify-between text-[11px] text-gray-500 font-medium">
+            <span>Date: {todayStr}</span>
+            <span className="font-mono text-amber-900 font-bold">Quota: {dailyTargetValue} tickets/day</span>
+          </div>
+        </div>
       </div>
 
       {/* Filter Section (Search, Case Categories, Call Statuses) */}
