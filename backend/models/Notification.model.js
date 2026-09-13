@@ -28,7 +28,14 @@ const notificationSchema = new Schema(
     },
     type: {
       type: String,
-      enum: ['NEW_OUTREACH_CASE', 'ADVOCATE_ASSIGNED', 'HEARING_UPDATE', 'GENERAL'],
+      enum: [
+        'NEW_OUTREACH_CASE',
+        'ADVOCATE_ASSIGNED',
+        'HEARING_UPDATE',
+        'CASE_UPDATE_REQUEST',
+        'ADMIN_DIRECT_MESSAGE',
+        'GENERAL',
+      ],
       default: 'GENERAL',
       index: true,
     },

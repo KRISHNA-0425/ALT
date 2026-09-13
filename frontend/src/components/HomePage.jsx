@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import OutreachDashboard from './OutreachDashboard';
 import SlcDashboard from './SlcDashboard';
 import AdvocateDashboard from './AdvocateDashboard';
+import AdminDashboard from './AdminDashboard';
 import NotificationBell from './Common/NotificationBell';
 
 const HomePage = () => {
@@ -28,7 +29,7 @@ const HomePage = () => {
 
   // Default portal based on role
   const [activePortal, setActivePortal] = useState(
-    role === 'ADV' ? 'advocate' : role === 'SLC' ? 'slc' : 'outreach'
+    role === 'ADM' ? 'admin' : role === 'ADV' ? 'advocate' : role === 'SLC' ? 'slc' : 'outreach'
   );
 
   const handleLogout = () => {
@@ -65,12 +66,20 @@ const HomePage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className={`h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
-              activePortal === 'advocate' ? 'bg-amber-600' : activePortal === 'slc' ? 'bg-cyan-600' : 'bg-indigo-600'
+              activePortal === 'admin'
+                ? 'bg-purple-600'
+                : activePortal === 'advocate'
+                ? 'bg-amber-600'
+                : activePortal === 'slc'
+                ? 'bg-cyan-600'
+                : 'bg-indigo-600'
             }`}>
-              {activePortal === 'advocate' ? 'ADV' : activePortal === 'slc' ? 'SLC' : 'OR'}
+              {activePortal === 'admin' ? 'ADM' : activePortal === 'advocate' ? 'ADV' : activePortal === 'slc' ? 'SLC' : 'OR'}
             </span>
             <span className="font-bold text-lg text-gray-900 tracking-tight hidden sm:inline">
-              {activePortal === 'advocate'
+              {activePortal === 'admin'
+                ? 'Admin Control Center'
+                : activePortal === 'advocate'
                 ? 'Advocate Portal'
                 : activePortal === 'slc'
                 ? 'Socio-Legal Counselling Portal'
@@ -80,6 +89,17 @@ const HomePage = () => {
             {/* Portal Switcher for Admins / Devs */}
             {hasDualAccess && (
               <div className="ml-4 flex items-center bg-gray-100 p-1 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setActivePortal('admin')}
+                  className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                    activePortal === 'admin'
+                      ? 'bg-white text-purple-700 shadow-xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  Admin Control
+                </button>
                 <button
                   type="button"
                   onClick={() => setActivePortal('outreach')}
@@ -156,7 +176,9 @@ const HomePage = () => {
 
       {/* Main Content Area */}
       <main className="flex-1">
-        {role === 'ADV' || activePortal === 'advocate' ? (
+        {activePortal === 'admin' && (role === 'ADM' || role === 'DEV') ? (
+          <AdminDashboard />
+        ) : role === 'ADV' || activePortal === 'advocate' ? (
           <AdvocateDashboard />
         ) : activePortal === 'slc' && canAccessSlc ? (
           <SlcDashboard />
