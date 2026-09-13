@@ -92,7 +92,7 @@ export default function LoginForm({ onLoginSuccess }) {
               id="userID"
               type="text"
               name="userID"
-              placeholder="e.g., ADV10001, SLC12345 or OR12346"
+              placeholder="Enter your User ID"
               maxLength={25}
               value={formData.userID}
               onChange={handleChange}
@@ -160,7 +160,7 @@ export default function LoginForm({ onLoginSuccess }) {
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed transition duration-150"
+            className="flex w-full justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 cursor-pointer"
           >
             {loading ? (
               <span className="flex items-center gap-2">
