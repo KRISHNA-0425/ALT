@@ -57,6 +57,37 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded documents statically for local storage / fallback
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+// Fallback for missing local files in /uploads (e.g. following cloud host ephemeral container restart)
+app.use('/uploads', (req, res) => {
+    res.status(404).send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document Not Found</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #1e293b; padding: 1.5rem; }
+    .card { background: white; padding: 2.5rem; border-radius: 1.25rem; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.08); max-width: 520px; text-align: center; border: 1px solid #e2e8f0; }
+    .icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.25rem; font-weight: 700; color: #b91c1c; margin-bottom: 0.75rem; }
+    p { font-size: 0.925rem; line-height: 1.6; color: #475569; margin-bottom: 1.5rem; }
+    .btn { display: inline-block; background: #4f46e5; color: white; padding: 0.65rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; transition: background 0.2s; }
+    .btn:hover { background: #4338ca; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📄</div>
+    <h1>Document Unavailable</h1>
+    <p>This legacy document was saved on temporary server storage prior to cloud storage activation, and was cleared when the server restarted.<br><br>Please use the <strong>Remove</strong> option in your dashboard to remove this record and re-upload the document. All new uploads are permanently preserved on Cloudinary.</p>
+    <a class="btn" href="javascript:window.close()">Close Window</a>
+  </div>
+</body>
+</html>
+    `);
+});
+
 app.use('/api/auth', authRouter);
 app.use('/api/outreach', outreachRouter);
 app.use('/api/outreach', documentRouter);

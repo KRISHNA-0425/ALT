@@ -592,11 +592,10 @@ export const addAdvocateCaseFields = async (req, res) => {
       if (isCloudinaryConfigured()) {
         try {
           const folderName = `advocate_documents/${caseDoc.slcNo || caseDoc.sNo || id}`;
-          const safeExt = ext.startsWith('.') ? ext : `.${ext}`;
           uploadResult = await uploadLargeFile(localFilePath, {
             resource_type: 'raw',
             folder: folderName,
-            public_id: `adv_doc_${Date.now()}${safeExt}`,
+            public_id: `adv_doc_${Date.now()}`,
           });
           await removeLocalFile(localFilePath);
         } catch (cloudErr) {

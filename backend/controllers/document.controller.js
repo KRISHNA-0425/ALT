@@ -370,25 +370,63 @@ export const viewCaseDocument = async (req, res) => {
       if (fs.existsSync(localFilePath)) {
         return fs.createReadStream(localFilePath).pipe(res);
       }
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(404).send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document Not Found</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #1e293b; padding: 1.5rem; }
+    .card { background: white; padding: 2.5rem; border-radius: 1.25rem; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.08); max-width: 520px; text-align: center; border: 1px solid #e2e8f0; }
+    .icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.25rem; font-weight: 700; color: #b91c1c; margin-bottom: 0.75rem; }
+    p { font-size: 0.925rem; line-height: 1.6; color: #475569; margin-bottom: 1.5rem; }
+    .btn { display: inline-block; background: #4f46e5; color: white; padding: 0.65rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📄</div>
+    <h1>Document Unavailable</h1>
+    <p>This document was stored on temporary local disk prior to cloud storage activation, and the server instance has since restarted.<br><br>Please use the <strong>Remove</strong> option on your dashboard to delete this document entry, and upload a fresh copy. All new uploads are stored permanently on Cloudinary.</p>
+    <a class="btn" href="javascript:window.close()">Close Window</a>
+  </div>
+</body>
+</html>
+      `);
     }
 
     // Case B: Remote URL (Cloudinary / CDN / Server)
     if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
       const secureFileUrl = fileUrl.replace(/^http:\/\/alt-1-4alx\.onrender\.com/, 'https://alt-1-4alx.onrender.com');
 
-      // For Cloudinary documents, redirect directly to Cloudinary's fast CDN
-      if (secureFileUrl.includes('cloudinary.com')) {
-        return res.redirect(secureFileUrl);
-      }
-
       try {
-        const response = await fetch(secureFileUrl);
-        if (!response.ok) {
-          return res.redirect(secureFileUrl);
+        let response = await fetch(secureFileUrl);
+
+        // If Cloudinary blocked raw PDF direct delivery with 401 ACL error, try alternate formats
+        if (!response.ok && response.status === 401 && secureFileUrl.includes('cloudinary.com')) {
+          const strippedUrl = secureFileUrl.replace(/\.pdf(\?|$)/i, '$1');
+          if (strippedUrl !== secureFileUrl) {
+            const retryResp = await fetch(strippedUrl);
+            if (retryResp.ok) {
+              response = retryResp;
+            }
+          }
         }
 
-        const arrayBuf = await response.arrayBuffer();
-        return res.send(Buffer.from(arrayBuf));
+        if (response.ok) {
+          const arrayBuf = await response.arrayBuffer();
+          res.setHeader('Content-Type', mimeType);
+          res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+          return res.send(Buffer.from(arrayBuf));
+        }
+
+        // Fallback: If streaming proxy fails, redirect to direct URL
+        return res.redirect(secureFileUrl);
       } catch (fetchErr) {
         console.warn('Proxy fetch failed, redirecting to direct URL:', fetchErr.message);
         return res.redirect(secureFileUrl);

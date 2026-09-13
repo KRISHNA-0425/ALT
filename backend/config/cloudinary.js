@@ -11,20 +11,20 @@ if (!process.env.CLOUDINARY_API_KEY) {
   dotenv.config({ path: '../backend/.env' });
 }
 
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'gbocsrt1';
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '534316187794725';
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || 'VNnaopgzUdY8UeqO0guV5iE9VO0';
+
 export const isCloudinaryConfigured = () => {
-  return !!(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET
-  );
+  return !!(CLOUDINARY_CLOUD_NAME && CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET);
 };
 
 export const ensureCloudinaryConfigured = () => {
   if (isCloudinaryConfigured()) {
     cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
+      cloud_name: CLOUDINARY_CLOUD_NAME,
+      api_key: CLOUDINARY_API_KEY,
+      api_secret: CLOUDINARY_API_SECRET,
       secure: true,
     });
     return true;
