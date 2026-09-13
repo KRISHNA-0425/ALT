@@ -18,6 +18,9 @@ import slcRouter from './routers/slc.route.js';
 import documentRouter from './routers/document.route.js';
 import advocateRouter from './routers/advocate.route.js';
 import notificationRouter from './routers/notification.route.js';
+import adminRouter from './routers/admin.route.js';
+import seedAdminUser from './seeds/seedAdmin.js';
+import { seedPipelineCases } from './seeds/seedPipelineCases.js';
 import path from 'path';
 
 // Load default environment variables (.env)
@@ -95,6 +98,7 @@ app.use('/api/documents', documentRouter);
 app.use('/api/slc', slcRouter);
 app.use('/api/advocates', advocateRouter);
 app.use('/api/notifications', notificationRouter);
+app.use('/api/admin', adminRouter);
 
 app.get('/', (_, res) => {
     res.send(`Server is running in ${NODE_ENV} mode.`);
@@ -103,6 +107,8 @@ app.get('/', (_, res) => {
 const startServer = async () => {
     try {
         await connectDb();
+        await seedAdminUser();
+        await seedPipelineCases();
         const server = app.listen(port, () => {
             console.log(`server is running in ${NODE_ENV} mode at port: ${port}`);
         });
