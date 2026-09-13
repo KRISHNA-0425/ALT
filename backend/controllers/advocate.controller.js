@@ -88,8 +88,28 @@ export const getMyAdvocateProfile = async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const advocate = await Advocate.findOne({ userID });
+    const callerRole = req.user?.roles || req.user?.role;
+    let advocate = await Advocate.findOne({ userID });
+
     if (!advocate) {
+      if (callerRole === 'ADM' || callerRole === 'DEV') {
+        return res.status(200).json({
+          message: 'Admin legal overseer profile fetched',
+          advocate: {
+            _id: req.user?._id || 'admin-overseer',
+            userID: req.user?.userID || 'ADM10001',
+            name: req.user?.userName || 'Admin Legal Overseer',
+            email: req.user?.email || 'admin@alt.org',
+            specialization: 'Executive Legal Supervisor (All Specialties)',
+            practiceCourt: 'All Courts & Jurisdictions',
+            yearsOfExperience: 15,
+            casesTaken: 0,
+            casesWon: 0,
+            state: 'Delhi',
+            isAdminOverseer: true,
+          },
+        });
+      }
       return res.status(404).json({ message: 'Advocate profile not found' });
     }
 
@@ -468,28 +488,51 @@ export const unassignAdvocateFromCase = async (req, res) => {
 export const getMyAssignedCases = async (req, res) => {
   try {
     const callerRole = req.user?.roles || req.user?.role;
-    // If authenticated user is an Advocate, strictly enforce their authenticated userID from JWT
-    const userID = (callerRole === 'ADV' && req.user?.userID)
-      ? req.user.userID
-      : (req.user?.userID || req.query.userID);
+    let advocateFilter = {};
 
-    if (!userID) {
-      return res.status(401).json({ message: 'Unauthorized. Advocate identification missing.' });
+    if (callerRole === 'ADM' || callerRole === 'DEV') {
+      // Admin / Dev supervisor view: can see all appointed cases, or filter by specific advocate if requested
+      if (req.query.advocateUserID && req.query.advocateUserID !== 'ALL') {
+        const targetUserId = req.query.advocateUserID.trim().toUpperCase();
+        const targetAdv = await Advocate.findOne({ userID: targetUserId });
+        advocateFilter = {
+          $or: [
+            { 'assignedAdvocate.userID': targetUserId },
+            ...(targetAdv?._id ? [{ 'assignedAdvocate.advocateId': targetAdv._id }] : []),
+          ],
+        };
+      } else {
+        advocateFilter = {
+          $or: [
+            { 'assignedAdvocate.userID': { $exists: true, $nin: [null, ''] } },
+            { 'assignedAdvocate.advocateId': { $exists: true, $ne: null } },
+          ],
+        };
+      }
+    } else {
+      // Regular Advocate: strictly enforce their authenticated userID from JWT
+      const userID = (callerRole === 'ADV' && req.user?.userID)
+        ? req.user.userID
+        : (req.user?.userID || req.query.userID);
+
+      if (!userID) {
+        return res.status(401).json({ message: 'Unauthorized. Advocate identification missing.' });
+      }
+
+      const normalizedUserId = userID.trim().toUpperCase();
+
+      // Find the advocate record to retrieve ObjectId and details
+      const advocate = await Advocate.findOne({ userID: normalizedUserId });
+      const advocateObjectId = advocate?._id;
+
+      // Filter strictly by this advocate's userID or advocateId
+      advocateFilter = {
+        $or: [
+          { 'assignedAdvocate.userID': normalizedUserId },
+          ...(advocateObjectId ? [{ 'assignedAdvocate.advocateId': advocateObjectId }] : []),
+        ],
+      };
     }
-
-    const normalizedUserId = userID.trim().toUpperCase();
-
-    // Find the advocate record to retrieve ObjectId and details
-    const advocate = await Advocate.findOne({ userID: normalizedUserId });
-    const advocateObjectId = advocate?._id;
-
-    // Filter strictly by this advocate's userID or advocateId
-    const advocateFilter = {
-      $or: [
-        { 'assignedAdvocate.userID': normalizedUserId },
-        ...(advocateObjectId ? [{ 'assignedAdvocate.advocateId': advocateObjectId }] : []),
-      ],
-    };
 
     // 1. Fetch from Outreach unified collection
     const outreachCases = await Outreach.find(advocateFilter).sort({ updatedAt: -1 });
@@ -515,6 +558,7 @@ export const getMyAssignedCases = async (req, res) => {
       message: 'Assigned cases fetched successfully',
       count: allAssignedCases.length,
       cases: allAssignedCases,
+      isAdminOverseer: callerRole === 'ADM' || callerRole === 'DEV',
     });
   } catch (error) {
     console.error('Error fetching assigned cases for advocate:', error);

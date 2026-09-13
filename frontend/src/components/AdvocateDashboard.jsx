@@ -14,6 +14,11 @@ export default function AdvocateDashboard() {
   const [loadingProfile, setLoadingProfile] = useState(!storedAdvocate);
   const [profileError, setProfileError] = useState(null);
 
+  // Overseer mode for Admin / Dev
+  const isAdminOrDev = user?.roles === 'ADM' || user?.roles === 'DEV' || advocateData?.isAdminOverseer;
+  const [allAdvocatesList, setAllAdvocatesList] = useState([]);
+  const [selectedAdvocateFilter, setSelectedAdvocateFilter] = useState('ALL');
+
   // Assigned Cases state
   const [assignedCases, setAssignedCases] = useState([]);
   const [loadingCases, setLoadingCases] = useState(true);
@@ -36,7 +41,7 @@ export default function AdvocateDashboard() {
 
   // 1. Fetch advocate profile if not available in store
   useEffect(() => {
-    if (storedAdvocate) {
+    if (storedAdvocate && storedAdvocate.userID === user?.userID) {
       setAdvocateData(storedAdvocate);
       setLoadingProfile(false);
       return;
@@ -62,14 +67,31 @@ export default function AdvocateDashboard() {
     if (token) {
       fetchProfile();
     }
-  }, [token, storedAdvocate, setAdvocate]);
+  }, [token, storedAdvocate, setAdvocate, user?.userID]);
 
-  // 2. Fetch cases assigned to this advocate
-  const fetchAssignedCases = async () => {
+  // Fetch list of all advocates if Admin/Dev
+  useEffect(() => {
+    if (isAdminOrDev && token) {
+      axios
+        .get(`${apiInstance}/advocates`, { headers: { Authorization: `Bearer ${token}` } })
+        .then((res) => {
+          setAllAdvocatesList(res.data?.data || []);
+        })
+        .catch((err) => console.warn('Could not fetch advocates list for supervisor:', err.message));
+    }
+  }, [isAdminOrDev, token]);
+
+  // 2. Fetch cases assigned to this advocate (or all cases if Admin Overseer)
+  const fetchAssignedCases = async (advocateFilterVal = selectedAdvocateFilter) => {
     try {
       setLoadingCases(true);
       setCasesError(null);
-      const res = await axios.get(`${apiInstance}/advocates/assigned-cases`, {
+      const url =
+        isAdminOrDev && advocateFilterVal && advocateFilterVal !== 'ALL'
+          ? `${apiInstance}/advocates/assigned-cases?advocateUserID=${encodeURIComponent(advocateFilterVal)}`
+          : `${apiInstance}/advocates/assigned-cases`;
+
+      const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setAssignedCases(res.data.cases || []);
@@ -83,9 +105,9 @@ export default function AdvocateDashboard() {
 
   useEffect(() => {
     if (token) {
-      fetchAssignedCases();
+      fetchAssignedCases(selectedAdvocateFilter);
     }
-  }, [token]);
+  }, [token, selectedAdvocateFilter]);
 
   const advocateName = advocateData?.name || user?.userName || 'Advocate';
   const userID = advocateData?.userID || user?.userID || 'ADV-----';
@@ -365,29 +387,87 @@ export default function AdvocateDashboard() {
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Top Welcome Banner */}
-      <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 rounded-3xl p-6 sm:p-8 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white border border-white/30 backdrop-blur-xs">
-              Role: ADV
-            </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30">
-              Verified Legal Counsel
-            </span>
+      {isAdminOrDev ? (
+        <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-amber-700 rounded-3xl p-6 sm:p-8 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white border border-white/30 backdrop-blur-xs">
+                Role: {user?.roles || 'ADM'}
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-300/30">
+                Executive Legal Overseer
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Legal Oversight Center
+            </h1>
+            <p className="text-purple-100 text-sm">
+              Supervising legal defense cases and advocate dockets across all jurisdictions
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Advocate {advocateName}
-          </h1>
-          <p className="text-amber-100 text-sm">
-            Jurisdiction: <strong className="text-white">{practiceCourt}</strong> ({stateName})
-          </p>
-        </div>
 
-        <div className="bg-white/10 border border-white/20 backdrop-blur-xs rounded-2xl px-5 py-3 text-right">
-          <p className="text-xs text-amber-200 font-medium">Advocate Bar ID</p>
-          <p className="text-xl font-mono font-bold tracking-wider">{userID}</p>
+          <div className="bg-white/10 border border-white/20 backdrop-blur-xs rounded-2xl px-5 py-3 text-right">
+            <p className="text-xs text-purple-200 font-medium">Supervised Cases</p>
+            <p className="text-2xl font-mono font-bold tracking-wider">{assignedCases.length}</p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 rounded-3xl p-6 sm:p-8 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white border border-white/30 backdrop-blur-xs">
+                Role: ADV
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30">
+                Verified Legal Counsel
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Advocate {advocateName}
+            </h1>
+            <p className="text-amber-100 text-sm">
+              Jurisdiction: <strong className="text-white">{practiceCourt}</strong> ({stateName})
+            </p>
+          </div>
+
+          <div className="bg-white/10 border border-white/20 backdrop-blur-xs rounded-2xl px-5 py-3 text-right">
+            <p className="text-xs text-amber-200 font-medium">Advocate Bar ID</p>
+            <p className="text-xl font-mono font-bold tracking-wider">{userID}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Overseer: Advocate Filter Selector */}
+      {isAdminOrDev && (
+        <div className="bg-white rounded-2xl border border-indigo-100 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-xl bg-purple-50 text-purple-700">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-purple-900">Advocate Caseload Filter</p>
+              <p className="text-xs text-gray-500">Filter appointed cases by specific advocate or view all dockets</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedAdvocateFilter}
+              onChange={(e) => setSelectedAdvocateFilter(e.target.value)}
+              className="text-xs font-semibold rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-gray-800 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-xs cursor-pointer min-w-[220px]"
+            >
+              <option value="ALL">All Appointed Advocates (All Cases)</option>
+              {allAdvocatesList.map((adv) => (
+                <option key={adv._id || adv.userID} value={adv.userID}>
+                  {adv.userID} — {adv.name} ({adv.specialization})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Profile & Practice Details Card */}
       <div className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden">
@@ -396,7 +476,7 @@ export default function AdvocateDashboard() {
             <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            Personal & Practice Details
+            {isAdminOrDev ? 'Executive Supervisor Profile' : 'Personal & Practice Details'}
           </h2>
           <span className="text-xs font-medium text-gray-500">
             Specialization: <strong className="text-indigo-700">{specialization}</strong>
