@@ -592,10 +592,11 @@ export const addAdvocateCaseFields = async (req, res) => {
       if (isCloudinaryConfigured()) {
         try {
           const folderName = `advocate_documents/${caseDoc.slcNo || caseDoc.sNo || id}`;
+          const safeExt = ext.startsWith('.') ? ext : `.${ext}`;
           uploadResult = await uploadLargeFile(localFilePath, {
             resource_type: 'raw',
             folder: folderName,
-            public_id: `adv_doc_${Date.now()}`,
+            public_id: `adv_doc_${Date.now()}${safeExt}`,
           });
           await removeLocalFile(localFilePath);
         } catch (cloudErr) {
@@ -617,7 +618,7 @@ export const addAdvocateCaseFields = async (req, res) => {
         const permDest = path.join(permanentDir, permFileName);
         await fs.promises.rename(localFilePath, permDest);
 
-        const protocol = req.protocol || 'http';
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
         const host = req.get('host') || 'localhost:3000';
         const fileUrl = `${protocol}://${host}/uploads/documents/advocate/${permFileName}`;
 
@@ -665,22 +666,21 @@ export const addAdvocateCaseFields = async (req, res) => {
       hearingUpdated = true;
     }
 
-    if (hearingNotes && hearingNotes.trim()) {
+    if (hearingNotes !== undefined) {
       caseDoc.caseDetails.hearingNotes = hearingNotes.trim();
       hearingUpdated = true;
     }
 
     if (bailApplicationsFiled !== undefined && bailApplicationsFiled !== '') {
-      const isFiled = bailApplicationsFiled === 'true' || bailApplicationsFiled === true;
-      caseDoc.caseDetails.bailApplicationsFiled = isFiled;
+      caseDoc.caseDetails.bailApplicationsFiled = bailApplicationsFiled === 'true' || bailApplicationsFiled === true;
       hearingUpdated = true;
     }
 
-    // 4. Log update into follow-up docket timeline
-    if (hearingUpdated || newFileEntry) {
+    // 4. Record follow-up entry in history for complete audit trail
+    if (newFileEntry || hearingUpdated) {
       const parts = [];
       if (hearingDate) {
-        parts.push(`Hearing Scheduled: ${new Date(hearingDate).toLocaleDateString('en-GB')}`);
+        parts.push(`Next Hearing Date: ${new Date(hearingDate).toLocaleDateString('en-GB')}`);
       }
       if (hearingNotes && hearingNotes.trim()) {
         parts.push(`Hearing Notes: ${hearingNotes.trim()}`);
@@ -717,6 +717,7 @@ export const addAdvocateCaseFields = async (req, res) => {
             'caseDetails.nextHearingDate': caseDoc.caseDetails?.nextHearingDate,
             'caseDetails.hearingNotes': caseDoc.caseDetails?.hearingNotes,
             'caseDetails.bailApplicationsFiled': caseDoc.caseDetails?.bailApplicationsFiled,
+            ...(newFileEntry ? { attachedFiles: caseDoc.attachedFiles } : {}),
           },
         }
       );
@@ -726,6 +727,7 @@ export const addAdvocateCaseFields = async (req, res) => {
           'caseDetails.nextHearingDate': caseDoc.caseDetails?.nextHearingDate,
           'caseDetails.hearingNotes': caseDoc.caseDetails?.hearingNotes,
           'caseDetails.bailApplicationsFiled': caseDoc.caseDetails?.bailApplicationsFiled,
+          ...(newFileEntry ? { attachedFiles: caseDoc.attachedFiles } : {}),
         },
       });
     }
@@ -740,6 +742,107 @@ export const addAdvocateCaseFields = async (req, res) => {
     console.error('Error in addAdvocateCaseFields:', error);
     return res.status(500).json({
       message: 'Failed to add fields to case',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc Delete a document uploaded by the advocate for a case
+ * @route DELETE /api/advocates/cases/:id/documents/:fileId
+ */
+export const deleteAdvocateDocument = async (req, res) => {
+  const { id, fileId } = req.params;
+
+  try {
+    let caseDoc = await Outreach.findById(id);
+    let isOutreach = true;
+
+    if (!caseDoc) {
+      caseDoc = await SocioLegalCounselling.findById(id);
+      isOutreach = false;
+    }
+
+    if (!caseDoc) {
+      return res.status(404).json({ message: 'Case record not found' });
+    }
+
+    // Verify advocate permissions
+    const assignedAdv = caseDoc.assignedAdvocate;
+    const appointedUserID = assignedAdv?.userID ? assignedAdv.userID.trim().toUpperCase() : null;
+    const appointedAdvId = assignedAdv?.advocateId ? assignedAdv.advocateId.toString() : null;
+
+    const callerRole = req.user?.roles || req.user?.role;
+    const callerUserID = (req.user?.userID || req.body?.advocateUserID || req.query?.advocateUserID || '').trim().toUpperCase();
+
+    if (callerRole === 'ADV' || callerUserID.startsWith('ADV')) {
+      const isAppointed = (appointedUserID && callerUserID === appointedUserID) ||
+                          (appointedAdvId && req.user?._id && req.user._id.toString() === appointedAdvId);
+
+      if (!isAppointed) {
+        return res.status(403).json({
+          message: 'Access denied: Only the appointed advocate for this case can remove this document.',
+        });
+      }
+    }
+
+    if (!caseDoc.attachedFiles || caseDoc.attachedFiles.length === 0) {
+      return res.status(404).json({ message: 'No documents attached to this case.' });
+    }
+
+    const fileIndex = caseDoc.attachedFiles.findIndex(
+      (f) =>
+        (f._id && f._id.toString() === fileId) ||
+        f.publicId === fileId ||
+        (f.publicId && f.publicId.endsWith(fileId))
+    );
+
+    if (fileIndex === -1) {
+      return res.status(404).json({ message: 'Document not found on this case.' });
+    }
+
+    const targetFile = caseDoc.attachedFiles[fileIndex];
+
+    // Remove from Cloudinary or local disk
+    try {
+      if (targetFile.resourceType === 'local' || targetFile.publicId?.startsWith('local_')) {
+        const fileName = targetFile.publicId.replace('local_', '');
+        const filePath = path.join(process.cwd(), 'uploads', 'documents', 'advocate', fileName);
+        if (fs.existsSync(filePath)) {
+          await fs.promises.unlink(filePath);
+        }
+      } else if (targetFile.publicId) {
+        await deleteFromCloudinary(targetFile.publicId, targetFile.resourceType || 'raw');
+      }
+    } catch (storageErr) {
+      console.warn('Could not delete file from storage:', storageErr.message);
+    }
+
+    // Remove from array
+    caseDoc.attachedFiles.splice(fileIndex, 1);
+    await caseDoc.save();
+
+    // Synchronize attachedFiles removal across Outreach and SocioLegalCounselling
+    if (isOutreach) {
+      await SocioLegalCounselling.updateMany(
+        { outreachId: caseDoc._id },
+        { $pull: { attachedFiles: { _id: targetFile._id } } }
+      );
+    } else if (caseDoc.outreachId) {
+      await Outreach.findByIdAndUpdate(caseDoc.outreachId, {
+        $pull: { attachedFiles: { _id: targetFile._id } }
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Document deleted successfully',
+      attachedFiles: caseDoc.attachedFiles,
+      deletedFileId: fileId,
+    });
+  } catch (error) {
+    console.error('Error deleting advocate document:', error);
+    return res.status(500).json({
+      message: 'Failed to delete document',
       error: error.message,
     });
   }

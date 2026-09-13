@@ -163,13 +163,23 @@ export const deleteCaseDocument = async (req, res) => {
   const { id, fileId } = req.params;
 
   try {
-    const caseDoc = await Outreach.findById(id);
+    let caseDoc = await Outreach.findById(id);
+    let isOutreach = true;
+
+    if (!caseDoc) {
+      caseDoc = await SocioLegalCounselling.findById(id);
+      isOutreach = false;
+    }
+
     if (!caseDoc) {
       return res.status(404).json({ message: 'Case record not found' });
     }
 
     const fileIndex = (caseDoc.attachedFiles || []).findIndex(
-      (f) => f._id.toString() === fileId || f.publicId === fileId
+      (f) =>
+        (f._id && f._id.toString() === fileId) ||
+        f.publicId === fileId ||
+        (f.publicId && f.publicId.endsWith(fileId))
     );
 
     if (fileIndex === -1) {
@@ -183,7 +193,9 @@ export const deleteCaseDocument = async (req, res) => {
       if (targetFile.resourceType === 'local' || targetFile.publicId?.startsWith('local_')) {
         const fileName = targetFile.publicId.replace('local_', '');
         const filePath = path.join(process.cwd(), 'uploads', 'documents', fileName);
-        await removeLocalFile(filePath);
+        if (fs.existsSync(filePath)) {
+          await removeLocalFile(filePath);
+        }
       } else if (targetFile.publicId) {
         await deleteFromCloudinary(targetFile.publicId, targetFile.resourceType || 'raw');
       }
@@ -194,6 +206,18 @@ export const deleteCaseDocument = async (req, res) => {
     // Remove from MongoDB array
     caseDoc.attachedFiles.splice(fileIndex, 1);
     await caseDoc.save();
+
+    // Synchronize attachedFiles removal across Outreach and SocioLegalCounselling
+    if (isOutreach) {
+      await SocioLegalCounselling.updateMany(
+        { outreachId: caseDoc._id },
+        { $pull: { attachedFiles: { _id: targetFile._id } } }
+      );
+    } else if (caseDoc.outreachId) {
+      await Outreach.findByIdAndUpdate(caseDoc.outreachId, {
+        $pull: { attachedFiles: { _id: targetFile._id } },
+      });
+    }
 
     return res.status(200).json({
       message: 'Document deleted successfully',
@@ -348,17 +372,27 @@ export const viewCaseDocument = async (req, res) => {
       }
     }
 
-    // Case B: Remote URL (Cloudinary)
+    // Case B: Remote URL (Cloudinary / CDN / Server)
     if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-      const response = await fetch(fileUrl);
-      if (!response.ok) {
-        return res
-          .status(response.status)
-          .send(`Failed to fetch file from storage: ${response.statusText}`);
+      const secureFileUrl = fileUrl.replace(/^http:\/\/alt-1-4alx\.onrender\.com/, 'https://alt-1-4alx.onrender.com');
+
+      // For Cloudinary documents, redirect directly to Cloudinary's fast CDN
+      if (secureFileUrl.includes('cloudinary.com')) {
+        return res.redirect(secureFileUrl);
       }
 
-      const arrayBuf = await response.arrayBuffer();
-      return res.send(Buffer.from(arrayBuf));
+      try {
+        const response = await fetch(secureFileUrl);
+        if (!response.ok) {
+          return res.redirect(secureFileUrl);
+        }
+
+        const arrayBuf = await response.arrayBuffer();
+        return res.send(Buffer.from(arrayBuf));
+      } catch (fetchErr) {
+        console.warn('Proxy fetch failed, redirecting to direct URL:', fetchErr.message);
+        return res.redirect(secureFileUrl);
+      }
     }
 
     return res.status(404).send('Document source not accessible');

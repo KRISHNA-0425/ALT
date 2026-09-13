@@ -1,11 +1,14 @@
 import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
 
+// Ensure env variables are loaded even if cwd is outside backend
 dotenv.config();
-
-// If production env exists and is loaded
 if (process.env.NODE_ENV === 'production') {
   dotenv.config({ path: '.env.production', override: true });
+}
+if (!process.env.CLOUDINARY_API_KEY) {
+  dotenv.config({ path: './backend/.env' });
+  dotenv.config({ path: '../backend/.env' });
 }
 
 export const isCloudinaryConfigured = () => {
@@ -16,13 +19,21 @@ export const isCloudinaryConfigured = () => {
   );
 };
 
-// Configure cloudinary with env variables
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
+export const ensureCloudinaryConfigured = () => {
+  if (isCloudinaryConfigured()) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true,
+    });
+    return true;
+  }
+  return false;
+};
+
+// Initial configuration attempt
+ensureCloudinaryConfigured();
 
 /**
  * Upload a file to Cloudinary with chunked upload support (for large files up to 2GB)
@@ -32,7 +43,7 @@ cloudinary.config({
  */
 export const uploadLargeFile = (filePath, customOptions = {}) => {
   return new Promise((resolve, reject) => {
-    if (!isCloudinaryConfigured()) {
+    if (!ensureCloudinaryConfigured()) {
       return reject(
         new Error(
           'Cloudinary is not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in backend .env'
@@ -65,7 +76,7 @@ export const uploadLargeFile = (filePath, customOptions = {}) => {
  */
 export const deleteFromCloudinary = (publicId, resourceType = 'raw') => {
   return new Promise((resolve, reject) => {
-    if (!isCloudinaryConfigured()) {
+    if (!ensureCloudinaryConfigured()) {
       return resolve({ result: 'skipped_not_configured' });
     }
 

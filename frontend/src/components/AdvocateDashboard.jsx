@@ -166,17 +166,75 @@ export default function AdvocateDashboard() {
   // Generate safe inline viewing URL (opens in new browser tab without downloading)
   const getDocumentViewUrl = (doc, caseItem) => {
     if (!doc) return '#';
-    const backendBase = 'http://localhost:3000';
+
+    // 1. If direct Cloudinary CDN URL, open directly in new tab
+    if (doc.fileUrl && (doc.fileUrl.startsWith('https://res.cloudinary.com/') || doc.fileUrl.startsWith('http://res.cloudinary.com/'))) {
+      return doc.fileUrl.replace('http://', 'https://');
+    }
+
     const caseId = caseItem?._id || doc.caseId;
     const fileId = doc._id || doc.publicId;
 
+    // 2. Use live backend proxy route with apiInstance
     if (caseId && fileId) {
-      return `${backendBase}/api/documents/view/${caseId}/${encodeURIComponent(fileId)}`;
+      return `${apiInstance}/documents/view/${caseId}/${encodeURIComponent(fileId)}`;
     }
     if (fileId) {
-      return `${backendBase}/api/documents/view/${encodeURIComponent(fileId)}`;
+      return `${apiInstance}/documents/view/${encodeURIComponent(fileId)}`;
     }
-    return doc.fileUrl || '#';
+
+    return doc.fileUrl ? doc.fileUrl.replace(/^http:\/\/alt-1-4alx\.onrender\.com/, 'https://alt-1-4alx.onrender.com') : '#';
+  };
+
+  // Delete an advocate document from case
+  const handleDeleteAdvocateDocument = async (caseId, docId, docTitle, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    if (!window.confirm(`Are you sure you want to remove the document "${docTitle || 'Advocate Document'}"?`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(
+        `${apiInstance}/advocates/cases/${caseId}/documents/${encodeURIComponent(docId)}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      toast.success('Document removed successfully');
+
+      // Update state in assignedCases
+      setAssignedCases((prev) =>
+        prev.map((c) => {
+          if (c._id === caseId) {
+            return {
+              ...c,
+              attachedFiles: (c.attachedFiles || []).filter(
+                (f) => f._id !== docId && f.publicId !== docId
+              ),
+            };
+          }
+          return c;
+        })
+      );
+
+      // Update selectedCaseForDetails if open
+      if (selectedCaseForDetails && selectedCaseForDetails._id === caseId) {
+        setSelectedCaseForDetails((prev) => ({
+          ...prev,
+          attachedFiles: (prev.attachedFiles || []).filter(
+            (f) => f._id !== docId && f.publicId !== docId
+          ),
+        }));
+      }
+    } catch (err) {
+      console.error('Error deleting advocate document:', err);
+      toast.error(err.response?.data?.message || 'Failed to remove document');
+    }
   };
 
   // Open "Add Fields" modal
@@ -754,19 +812,32 @@ export default function AdvocateDashboard() {
                     ) : (
                       <div className="flex flex-wrap gap-2 pt-1">
                         {advocateDocs.map((doc, idx) => (
-                          <a
+                          <div
                             key={doc._id || idx}
-                            href={getDocumentViewUrl(doc, caseItem)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 transition shadow-2xs"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-900 shadow-2xs hover:border-amber-400 group"
                           >
-                            <span>⚖</span>
-                            <span className="truncate max-w-[220px]" title={doc.title}>
-                              {doc.title || 'Advocate Submission'}
-                            </span>
-                            <span className="text-[10px] text-amber-600">↗</span>
-                          </a>
+                            <a
+                              href={getDocumentViewUrl(doc, caseItem)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 truncate max-w-[200px] hover:text-amber-700"
+                              title={`View ${doc.title || 'Advocate Submission'} in new tab`}
+                            >
+                              <span>⚖</span>
+                              <span className="truncate">{doc.title || 'Advocate Submission'}</span>
+                              <span className="text-[10px] text-amber-600">↗</span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteAdvocateDocument(caseItem._id, doc._id || doc.publicId, doc.title, e)}
+                              className="ml-1 text-amber-400 hover:text-red-600 p-0.5 rounded transition cursor-pointer"
+                              title="Remove this document"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -1300,14 +1371,25 @@ export default function AdvocateDashboard() {
                                 Uploaded by: {doc.uploadedByName || 'Advocate'}
                               </p>
                             </div>
-                            <a
-                              href={getDocumentViewUrl(doc, selectedCaseForDetails)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 rounded-lg bg-white border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100"
-                            >
-                              View ↗
-                            </a>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <a
+                                href={getDocumentViewUrl(doc, selectedCaseForDetails)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded-lg bg-white border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100 flex items-center gap-1"
+                              >
+                                <span>View</span>
+                                <span className="text-[10px]">↗</span>
+                              </a>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteAdvocateDocument(selectedCaseForDetails._id, doc._id || doc.publicId, doc.title, e)}
+                                className="rounded-lg bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 px-2 py-1 text-xs font-semibold transition cursor-pointer"
+                                title="Remove this document"
+                              >
+                                Remove
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
